@@ -1,0 +1,6 @@
+.git
+.github
+.env-sample
+.releaserc.json
+*test.go
+Makefile
