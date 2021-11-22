@@ -3,7 +3,7 @@ export $(shell sed 's/=.*//' .env)
 
 GOPATH=$(shell go env GOPATH)
 
-.PHONY: help build fmt vet
+.PHONY: help build fmt vet test
 
 help:	# The following lines will print the available commands when entering just 'make'. ⚠️ This needs to be the first target, ever
 ifeq ($(UNAME), Linux)
@@ -24,4 +24,4 @@ vet:	### Run go vet against code
 	go vet ./...
 
 test: ### Runs application's tests in verbose mode
-	go test -v ./pkg/...
+	go test -v ./...

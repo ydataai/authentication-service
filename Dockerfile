@@ -16,8 +16,7 @@ FROM gcr.io/distroless/base:latest-amd64
 
 WORKDIR /
 
-# FIX: this must be changed to the correct name
-LABEL org.opencontainers.image.source https://github.com/ydataai/go-template
+LABEL org.opencontainers.image.source https://github.com/ydataai/authentication-service
 
 COPY --from=builder /workspace/main .
 

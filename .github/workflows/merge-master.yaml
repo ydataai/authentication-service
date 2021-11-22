@@ -1,16 +1,14 @@
 name: Merge master
 
-# FIX: remove the following line and uncomment the others to continue
-on: {}
-# on:
-#   push:
-#     branches:
-#     - master
+on:
+  push:
+    branches:
+    - master
 
 
 jobs:
   prepare:
-    name: Calculate Version and build number
+    name: Calculate Version and Build Number
     runs-on: ubuntu-20.04
 
     outputs:
@@ -51,7 +49,7 @@ jobs:
     - name: Setup Go
       uses: actions/setup-go@v2
       with:
-        go-version: '1.16'
+        go-version: '1.17'
 
     - name: Cache Go modules
       uses: actions/cache@v2
@@ -63,7 +61,7 @@ jobs:
           ${{ runner.OS }}-build-
           ${{ runner.OS }}-
 
-    - name: Build for test
+    - name: Build for Test
       run: make build
 
 
