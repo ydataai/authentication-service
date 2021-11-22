@@ -1,22 +1,20 @@
 name: Merge master
 
-# FIX: remove the following line and uncomment the others to continue
-on: {}
-# on:
-#   push:
-#     branches:
-#     - master
+on:
+  push:
+    branches:
+    - master
 
 
 jobs:
   prepare:
-    name: Calculate Version and build number
+    name: Calculate Version and Build Number
     runs-on: ubuntu-20.04
 
     outputs:
       build_number: ${{ steps.short_sha.outputs.value }}
       new_release: ${{ steps.semantic.outputs.new_release_published }}
-      release: ${{ steps.semantic.outputs.new_release_version }}
+      release: ${{ steps.version.outputs.value }}
       release_notes: ${{ steps.semantic.outputs.new_release_notes }}
 
     steps:
@@ -35,6 +33,10 @@ jobs:
       id: short_sha
       run: echo "::set-output name=value::$(git rev-parse --short HEAD)"
 
+    - name: Remove prefix 'v' from version
+      id: version
+      run: echo "::set-output name=value::`echo ${{ steps.semantic.outputs.new_release_version }} | sed -r 's|v()|\1|'`"
+
 
   build:
     if: needs.prepare.outputs.new_release == 'true'
@@ -51,7 +53,7 @@ jobs:
     - name: Setup Go
       uses: actions/setup-go@v2
       with:
-        go-version: '1.16'
+        go-version: '1.17'
 
     - name: Cache Go modules
       uses: actions/cache@v2
@@ -63,7 +65,7 @@ jobs:
           ${{ runner.OS }}-build-
           ${{ runner.OS }}-
 
-    - name: Build for test
+    - name: Build for Test
       run: make build
 
 
@@ -85,7 +87,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
         VERSION: ${{ needs.prepare.outputs.release }}
       with:
-        tag_name: ${{ env.VERSION }}.${{ env.BUILD }}
+        tag_name: v${{ env.VERSION }}.${{ env.BUILD }}
         release_name: ${{ env.VERSION }}.${{ env.BUILD }}
         body: ${{ github.event.head_commit.message }}
         prerelease: true
@@ -112,7 +114,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
       with:
-        tag_name: ${{ needs.prepare.outputs.release }}
+        tag_name: v${{ needs.prepare.outputs.release }}
         release_name: ${{ needs.prepare.outputs.release }}
         body: ${{ needs.prepare.outputs.release_notes }}
         draft: true
