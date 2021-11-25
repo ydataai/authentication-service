@@ -15,7 +15,7 @@ else
 endif
 
 build:	### Build
-	go build -o main -a main.go
+	go build -o main -a cmd/main.go
 
 fmt:	### Run go fmt against code
 	go fmt ./...
