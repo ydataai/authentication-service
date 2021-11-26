@@ -15,13 +15,13 @@ import (
 
 // Server defines a struct that can be used
 type Server struct {
-	configuration ServerConfiguration
+	configuration Configuration
 	oidcClient    clients.OIDCClient
 	logger        logging.Logger
 }
 
 // NewServer defines a new values for the server
-func NewServer(logger logging.Logger, c ServerConfiguration,
+func NewServer(logger logging.Logger, c Configuration,
 	oc clients.OIDCClient) *Server {
 
 	return &Server{
@@ -31,6 +31,7 @@ func NewServer(logger logging.Logger, c ServerConfiguration,
 	}
 }
 
+// RedirectAuthEndpoint is the handler responsible for redirecting to the auth endpoint.
 func (s *Server) RedirectAuthEndpoint(w http.ResponseWriter, r *http.Request) {
 	state, err := randString(16)
 	if err != nil {

@@ -21,7 +21,7 @@ func init() {
 
 func main() {
 	loggerConfiguration := logging.LoggerConfiguration{}
-	serverConfiguration := server.ServerConfiguration{}
+	serverConfiguration := server.Configuration{}
 	oidcConfiguration := clients.OIDCConfiguration{}
 
 	if err := config.InitConfigurationVariables([]config.ConfigurationVariables{

@@ -6,8 +6,8 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
-// ServerConfiguration defines a struct with required environment variables for a server
-type ServerConfiguration struct {
+// Configuration defines a struct with required environment variables for a server
+type Configuration struct {
 	Hostname           string   `envconfig:"HOSTNAME"`
 	Port               int      `envconfig:"PORT" default:"8080"`
 	ReadinessProbePort int      `envconfig:"READINESS_PROBE_PORT" default:"8081"`
@@ -17,6 +17,6 @@ type ServerConfiguration struct {
 }
 
 // LoadFromEnvVars from the Logger
-func (sc *ServerConfiguration) LoadFromEnvVars() error {
-	return envconfig.Process("", sc)
+func (c *Configuration) LoadFromEnvVars() error {
+	return envconfig.Process("", c)
 }

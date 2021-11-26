@@ -14,14 +14,14 @@ import (
 
 // RESTController defines rest controller
 type RESTController struct {
-	serverConfig *server.ServerConfiguration
+	serverConfig *server.Configuration
 	oidcConfig   *clients.OIDCConfiguration
 	logger       logging.Logger
 }
 
 // NewRESTController initializes rest controller
 func NewRESTController(logger logging.Logger,
-	sc *server.ServerConfiguration,
+	sc *server.Configuration,
 	oc *clients.OIDCConfiguration) RESTController {
 	return RESTController{
 		serverConfig: sc,
