@@ -31,7 +31,7 @@ func NewOIDCClient(logger logging.Logger, config OIDCConfiguration) *OIDCClient 
 		ClientSecret: config.ClientSecret,
 		// Discovery returns the OAuth2 endpoints.
 		Endpoint:    provider.Endpoint(),
-		RedirectURL: config.OIDCCallbackURI,
+		RedirectURL: config.OIDCCallbackURL,
 		// "openid" is a required scope for OpenID Connect flows.
 		Scopes: config.OIDCScopes,
 	}
