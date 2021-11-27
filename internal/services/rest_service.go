@@ -22,7 +22,8 @@ func NewRESTService(logger logging.Logger) *RESTService {
 	}
 }
 
-func (rs RESTService) RandString(nByte int) (string, error) {
+// RandomString creates a random string and does a base64 encoding
+func (rs RESTService) RandomString(nByte int) (string, error) {
 	b := make([]byte, nByte)
 	if _, err := io.ReadFull(rand.Reader, b); err != nil {
 		return "", err
@@ -30,7 +31,8 @@ func (rs RESTService) RandString(nByte int) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-func (rs RESTService) SetCallbackCookie(w http.ResponseWriter, r *http.Request, name, value string) {
+// SetSessionCookie sets a cookie for the session
+func (rs RESTService) SetSessionCookie(w http.ResponseWriter, r *http.Request, name, value string) {
 	c := &http.Cookie{
 		Name:     name,
 		Value:    value,

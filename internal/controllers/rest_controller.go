@@ -37,43 +37,43 @@ func NewRESTController(restService *services.RESTService,
 }
 
 // Boot ...
-func (r RESTController) Boot(s *server.Server) {
-	s.Router.GET("/healthz", r.healthCheck())
+func (rc RESTController) Boot(s *server.Server) {
+	s.Router.GET("/healthz", rc.healthCheck())
 
-	s.Router.GET(r.configuration.AuthServiceURL, gin.WrapF(r.RedirectAuthEndpoint))
-	s.Router.GET(r.configuration.OIDCCallbackURL, gin.WrapF(r.Callback))
+	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.RedirectAuthEndpoint))
+	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.Callback))
 	// router.HandleFunc(r.serverConfig.LogoutURL.String(), s.Logout).Methods(http.MethodPost)
 }
 
-func (r RESTController) healthCheck() gin.HandlerFunc {
+func (rc RESTController) healthCheck() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		ctx.Status(http.StatusNoContent)
 	}
 }
 
 // RedirectAuthEndpoint is the handler responsible for redirecting to the auth endpoint.
-func (rs RESTController) RedirectAuthEndpoint(w http.ResponseWriter, r *http.Request) {
-	state, err := rs.restService.RandString(16)
+func (rc RESTController) RedirectAuthEndpoint(w http.ResponseWriter, r *http.Request) {
+	state, err := rc.restService.RandomString(16)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
-		rs.logger.Errorf("Internal Error %v", http.StatusInternalServerError)
+		rc.logger.Errorf("Internal Error %v", http.StatusInternalServerError)
 		return
 	}
-	nonce, err := rs.restService.RandString(16)
+	nonce, err := rc.restService.RandomString(16)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
-		rs.logger.Errorf("Internal Error %v", http.StatusInternalServerError)
+		rc.logger.Errorf("Internal Error %v", http.StatusInternalServerError)
 		return
 	}
-	rs.restService.SetCallbackCookie(w, r, "state", state)
-	rs.restService.SetCallbackCookie(w, r, "nonce", nonce)
+	rc.restService.SetSessionCookie(w, r, "state", state)
+	rc.restService.SetSessionCookie(w, r, "nonce", nonce)
 
-	rs.logger.Info("Redirect to Authorization Endpoint")
-	http.Redirect(w, r, rs.oidcClient.OAuth2Config.AuthCodeURL(state, oidc.Nonce(nonce)), http.StatusFound)
+	rc.logger.Info("Redirect to Authorization Endpoint")
+	http.Redirect(w, r, rc.oidcClient.OAuth2Config.AuthCodeURL(state, oidc.Nonce(nonce)), http.StatusFound)
 }
 
 // Callback is the handler responsible for authenticating the user's session.
-func (rs RESTController) Callback(w http.ResponseWriter, r *http.Request) {
+func (rc RESTController) Callback(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	state, err := r.Cookie("state")
@@ -86,7 +86,7 @@ func (rs RESTController) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	oauth2Token, err := rs.oidcClient.OAuth2Config.Exchange(ctx, r.URL.Query().Get("code"))
+	oauth2Token, err := rc.oidcClient.OAuth2Config.Exchange(ctx, r.URL.Query().Get("code"))
 	if err != nil {
 		http.Error(w, "Failed to exchange token: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -96,7 +96,7 @@ func (rs RESTController) Callback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No id_token field in oauth2 token.", http.StatusInternalServerError)
 		return
 	}
-	idToken, err := rs.oidcClient.Verifier.Verify(ctx, rawIDToken)
+	idToken, err := rc.oidcClient.Verifier.Verify(ctx, rawIDToken)
 	if err != nil {
 		http.Error(w, "Failed to verify ID Token: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -131,11 +131,11 @@ func (rs RESTController) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Write(data)
 
-	rs.logger.Infof("Login validated with ID token, redirecting to %v.", rs.configuration.AfterLoginURL)
-	http.Redirect(w, r, rs.configuration.AfterLoginURL, http.StatusFound)
+	rc.logger.Infof("Login validated with ID token, redirecting to %v.", rc.configuration.AfterLoginURL)
+	http.Redirect(w, r, rc.configuration.AfterLoginURL, http.StatusFound)
 }
 
 // Logout is the handler responsible for revoking the user's session.
-// func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
+// func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
 //
 // }
