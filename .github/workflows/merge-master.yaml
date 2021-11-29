@@ -1,9 +1,12 @@
 name: Merge master
 
+
+
 on:
   push:
     branches:
     - master
+
 
 
 jobs:
