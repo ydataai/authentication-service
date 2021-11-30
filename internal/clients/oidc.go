@@ -10,7 +10,7 @@ import (
 
 // OIDCClient defines a struct that can be used
 type OIDCClient struct {
-	Configuration OIDCConfiguration
+	configuration OIDCConfiguration
 	OAuth2Config  *oauth2.Config
 	Verifier      *oidc.IDTokenVerifier
 	logger        logging.Logger
@@ -29,11 +29,9 @@ func NewOIDCClient(logger logging.Logger, config OIDCConfiguration) *OIDCClient 
 	oauth2Config := &oauth2.Config{
 		ClientID:     config.ClientID,
 		ClientSecret: config.ClientSecret,
-		// Discovery returns the OAuth2 endpoints.
-		Endpoint:    provider.Endpoint(),
-		RedirectURL: config.OIDCCallbackURL,
-		// "openid" is a required scope for OpenID Connect flows.
-		Scopes: config.OIDCScopes,
+		Endpoint:     provider.Endpoint(), // Discovery returns the OAuth2 endpoints.
+		RedirectURL:  config.OIDCRedirectURL,
+		Scopes:       config.OIDCScopes, // "openid" is a required scope for OpenID Connect flows.
 	}
 	oidcConfig := &oidc.Config{
 		ClientID: config.ClientID,
@@ -41,7 +39,7 @@ func NewOIDCClient(logger logging.Logger, config OIDCConfiguration) *OIDCClient 
 	verifier := provider.Verifier(oidcConfig)
 
 	return &OIDCClient{
-		Configuration: config,
+		configuration: config,
 		OAuth2Config:  oauth2Config,
 		Verifier:      verifier,
 		logger:        logger,

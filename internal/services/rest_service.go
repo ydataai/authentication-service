@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/ydataai/go-core/pkg/common/logging"
 )
@@ -32,11 +31,12 @@ func (rs RESTService) RandomString(nByte int) (string, error) {
 }
 
 // SetSessionCookie sets a cookie for the session
-func (rs RESTService) SetSessionCookie(w http.ResponseWriter, r *http.Request, name, value string) {
+func (rs RESTService) SetSessionCookie(w http.ResponseWriter, r *http.Request,
+	name, value string, maxAge int) {
 	c := &http.Cookie{
 		Name:     name,
 		Value:    value,
-		MaxAge:   int(time.Hour.Seconds()),
+		MaxAge:   maxAge,
 		Secure:   r.TLS != nil,
 		HttpOnly: true,
 	}

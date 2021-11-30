@@ -1,23 +1,46 @@
 name: Released
 
+
+
 on:
   release:
     types:
     - released
 
 
+
 env:
   COMPONENT: authentication-service
-  COMPONENT_PATH: apps/authentication-service
+  COMPONENT_PATH: apps
 
-  CONTAINER: container_image
-  DOCKER_IMAGE_URL: ${{ secrets.PRIVATE_CONTAINER_REGISTRY }}/${{ github.repository_owner }}/authentication-service
+  PRIVATE_ECR_ACCESSKEYID: ${{ secrets.AWS_ECR_ACCESSKEYID }}
+  PRIVATE_ECR_SECRETACCESSKEY: ${{ secrets.AWS_ECR_SECRETACCESSKEY }}
+  PRIVATE_ECR_REGION: ${{ secrets.AWS_ECR_REGION }}
+
+  CONTAINER: authentication-service-container-image
+  DOCKER_REPOSITORY: authentication-service
+
 
 
 jobs:
-  prepare:
-    name: Extract Version and Build number
+  cancel_previous:
+    name: 'Cancel Previous Runs'
     runs-on: ubuntu-20.04
+    timeout-minutes: 3
+
+    steps:
+      - uses: ydataai/cancel-workflow-action@0.7.0-fix
+        with:
+          ignore_sha: true
+          access_token: ${{ secrets.ACCESS_TOKEN }}
+
+
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-20.04
+
+    needs:
+    - cancel_previous
 
     outputs:
       build_number: ${{ steps.short_sha.outputs.value }}
@@ -43,17 +66,21 @@ jobs:
     - prepare
 
     steps:
-    - name: Login to GitHub docker
-      uses: docker/login-action@v1
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
       with:
-        registry: ${{ secrets.PRIVATE_CONTAINER_REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GHCR_TOKEN }}
+        aws-access-key-id: ${{ env.PRIVATE_ECR_ACCESSKEYID }}
+        aws-secret-access-key: ${{ env.PRIVATE_ECR_SECRETACCESSKEY }}
+        aws-region: ${{ env.PRIVATE_ECR_REGION }}
+
+    - name: Login to Amazon ECR
+      id: ecr_password
+      uses: aws-actions/amazon-ecr-login@v1
 
     - name: Docker tag and push
       env:
-        SOURCE: ${{ env.DOCKER_IMAGE_URL }}:${{ needs.prepare.outputs.version }}.${{ needs.prepare.outputs.build_number }}
-        DESTINATION: ${{ env.DOCKER_IMAGE_URL }}:${{ needs.prepare.outputs.version }}
+        SOURCE: ${{ steps.ecr_password.outputs.registry }}/${{ env.DOCKER_REPOSITORY }}:${{ needs.prepare.outputs.version }}.${{ needs.prepare.outputs.build_number }}
+        DESTINATION: ${{ steps.ecr_password.outputs.registry }}/${{ env.DOCKER_REPOSITORY }}:${{ needs.prepare.outputs.version }}
       run: |
         docker pull $SOURCE
         docker tag $SOURCE $DESTINATION
@@ -83,8 +110,8 @@ jobs:
       env:
         VERSION: ${{ needs.prepare.outputs.version }}
       run: |
-        cd ${COMPONENT_PATH}
-        kustomize edit set image ${CONTAINER}=${DOCKER_IMAGE_URL}:${VERSION}
+        cd ${COMPONENT_PATH}/
+        kustomize edit set image ${CONTAINER}=${DOCKER_REPOSITORY}:${VERSION}
 
     - name: Commit and push image update into manifests repo
       env:

@@ -15,6 +15,7 @@ type RESTControllerConfiguration struct {
 	LogoutURL          string        `envconfig:"LOGOUT_URL" default:"/logout"`
 	AfterLoginURL      string        `envconfig:"AFTER_LOGIN_URL" default:"/"`
 	AfterLogoutURL     string        `envconfig:"AFTER_LOGOUT_URL" default:"/login"`
+	SessionMaxAge      int           `envconfig:"SESSION_MAX_AGE" default:"604800"`
 	HTTPRequestTimeout time.Duration `envconfig:"HTTP_REQUEST_TIMEOUT" default:"30s"`
 }
 

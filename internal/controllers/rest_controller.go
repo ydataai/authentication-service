@@ -42,7 +42,7 @@ func (rc RESTController) Boot(s *server.Server) {
 
 	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.RedirectAuthEndpoint))
 	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.Callback))
-	// router.HandleFunc(r.serverConfig.LogoutURL.String(), s.Logout).Methods(http.MethodPost)
+	// s.Router.POST(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
 }
 
 func (rc RESTController) healthCheck() gin.HandlerFunc {
@@ -65,8 +65,8 @@ func (rc RESTController) RedirectAuthEndpoint(w http.ResponseWriter, r *http.Req
 		rc.logger.Errorf("Internal Error %v", http.StatusInternalServerError)
 		return
 	}
-	rc.restService.SetSessionCookie(w, r, "state", state)
-	rc.restService.SetSessionCookie(w, r, "nonce", nonce)
+	rc.restService.SetSessionCookie(w, r, "state", state, rc.configuration.SessionMaxAge)
+	rc.restService.SetSessionCookie(w, r, "nonce", nonce, rc.configuration.SessionMaxAge)
 
 	rc.logger.Info("Redirect to Authorization Endpoint")
 	http.Redirect(w, r, rc.oidcClient.OAuth2Config.AuthCodeURL(state, oidc.Nonce(nonce)), http.StatusFound)
@@ -74,17 +74,11 @@ func (rc RESTController) RedirectAuthEndpoint(w http.ResponseWriter, r *http.Req
 
 // Callback is the handler responsible for authenticating the user's session.
 func (rc RESTController) Callback(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), rc.configuration.HTTPRequestTimeout)
+	defer cancel()
 
-	state, err := r.Cookie("state")
-	if err != nil {
-		http.Error(w, "state not found", http.StatusBadRequest)
-		return
-	}
-	if r.URL.Query().Get("state") != state.Value {
-		http.Error(w, "state did not match", http.StatusBadRequest)
-		return
-	}
+	// TODO: should we do the status check and nonce?
+	// if so, we should save somewhere to compare it with the request.
 
 	oauth2Token, err := rc.oidcClient.OAuth2Config.Exchange(ctx, r.URL.Query().Get("code"))
 	if err != nil {
@@ -102,18 +96,6 @@ func (rc RESTController) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nonce, err := r.Cookie("nonce")
-	if err != nil {
-		http.Error(w, "nonce not found", http.StatusBadRequest)
-		return
-	}
-	if idToken.Nonce != nonce.Value {
-		http.Error(w, "nonce did not match", http.StatusBadRequest)
-		return
-	}
-
-	oauth2Token.AccessToken = "*REDACTED*"
-
 	resp := struct {
 		OAuth2Token   *oauth2.Token
 		IDTokenClaims *json.RawMessage // ID Token payload is just JSON.
@@ -129,10 +111,9 @@ func (rc RESTController) Callback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Write(data)
 
-	rc.logger.Infof("Login validated with ID token, redirecting to %v.", rc.configuration.AfterLoginURL)
-	http.Redirect(w, r, rc.configuration.AfterLoginURL, http.StatusFound)
+	rc.logger.Info("Login validated with ID token")
+	w.Write(data)
 }
 
 // Logout is the handler responsible for revoking the user's session.

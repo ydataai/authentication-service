@@ -14,12 +14,8 @@ import (
 )
 
 var (
-	errChan chan error
-)
-
-func init() {
 	errChan = make(chan error)
-}
+)
 
 func main() {
 	loggerConfiguration := logging.LoggerConfiguration{}
