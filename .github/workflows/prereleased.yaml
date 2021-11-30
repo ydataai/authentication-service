@@ -11,7 +11,7 @@ on:
 
 env:
   COMPONENT: authentication-service
-  COMPONENT_PATH: contrib
+  COMPONENT_PATH: apps
 
   PRIVATE_ECR_ACCESSKEYID: ${{ secrets.AWS_ECR_ACCESSKEYID }}
   PRIVATE_ECR_SECRETACCESSKEY: ${{ secrets.AWS_ECR_SECRETACCESSKEY }}
