@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/coreos/go-oidc"
 	"github.com/gin-gonic/gin"
-	"golang.org/x/oauth2"
 
 	"github.com/ydataai/authentication-service/internal/clients"
 	"github.com/ydataai/authentication-service/internal/services"
@@ -17,32 +15,32 @@ import (
 
 // RESTController defines rest controller
 type RESTController struct {
-	restService   *services.RESTService
 	configuration RESTControllerConfiguration
+	sessionConfig services.SessionConfiguration
 	oidcClient    *clients.OIDCClient
 	logger        logging.Logger
 }
 
 // NewRESTController initializes rest controller
-func NewRESTController(restService *services.RESTService,
+func NewRESTController(
 	configuration RESTControllerConfiguration,
+	sessionConfig services.SessionConfiguration,
 	oidcClient *clients.OIDCClient,
 	logger logging.Logger) RESTController {
 	return RESTController{
-		restService:   restService,
 		configuration: configuration,
+		sessionConfig: sessionConfig,
 		oidcClient:    oidcClient,
 		logger:        logger,
 	}
 }
 
-// Boot ...
+// Boot initialize creating some routes
 func (rc RESTController) Boot(s *server.Server) {
 	s.Router.GET("/healthz", rc.healthCheck())
 
-	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.RedirectAuthEndpoint))
-	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.Callback))
-	// s.Router.POST(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
+	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.RedirectToOIDCProvider))
+	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.OIDCProviderCallback))
 }
 
 func (rc RESTController) healthCheck() gin.HandlerFunc {
@@ -51,72 +49,32 @@ func (rc RESTController) healthCheck() gin.HandlerFunc {
 	}
 }
 
-// RedirectAuthEndpoint is the handler responsible for redirecting to the auth endpoint.
-func (rc RESTController) RedirectAuthEndpoint(w http.ResponseWriter, r *http.Request) {
-	state, err := rc.restService.RandomString(16)
+// RedirectToOIDCProvider is the handler responsible for redirecting to the OIDC Provider
+func (rc RESTController) RedirectToOIDCProvider(w http.ResponseWriter, r *http.Request) {
+	session, err := services.NewSession(rc.logger, rc.sessionConfig, w, r)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		rc.logger.Errorf("Internal Error %v", http.StatusInternalServerError)
 		return
 	}
-	nonce, err := rc.restService.RandomString(16)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		rc.logger.Errorf("Internal Error %v", http.StatusInternalServerError)
-		return
-	}
-	rc.restService.SetSessionCookie(w, r, "state", state, rc.configuration.SessionMaxAge)
-	rc.restService.SetSessionCookie(w, r, "nonce", nonce, rc.configuration.SessionMaxAge)
 
-	rc.logger.Info("Redirect to Authorization Endpoint")
-	http.Redirect(w, r, rc.oidcClient.OAuth2Config.AuthCodeURL(state, oidc.Nonce(nonce)), http.StatusFound)
+	rc.logger.Info("Redirecting to OIDC Provider...")
+	http.Redirect(w, r, session.CreateOIDCProviderURL(rc.oidcClient), http.StatusFound)
 }
 
-// Callback is the handler responsible for authenticating the user's session.
-func (rc RESTController) Callback(w http.ResponseWriter, r *http.Request) {
+// OIDCProviderCallback returns with auth code
+func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), rc.configuration.HTTPRequestTimeout)
 	defer cancel()
 
-	// TODO: should we do the status check and nonce?
-	// if so, we should save somewhere to compare it with the request.
-
-	oauth2Token, err := rc.oidcClient.OAuth2Config.Exchange(ctx, r.URL.Query().Get("code"))
-	if err != nil {
-		http.Error(w, "Failed to exchange token: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
-	if !ok {
-		http.Error(w, "No id_token field in oauth2 token.", http.StatusInternalServerError)
-		return
-	}
-	idToken, err := rc.oidcClient.Verifier.Verify(ctx, rawIDToken)
-	if err != nil {
-		http.Error(w, "Failed to verify ID Token: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	resp := struct {
-		OAuth2Token   *oauth2.Token
-		IDTokenClaims *json.RawMessage // ID Token payload is just JSON.
-	}{oauth2Token, new(json.RawMessage)}
-
-	if err := idToken.Claims(&resp.IDTokenClaims); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	data, err := json.MarshalIndent(resp, "", "    ")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	oidcService := services.NewOIDCService(ctx, rc.logger, rc.oidcClient, w, r)
 
 	rc.logger.Info("Login validated with ID token")
-	w.Write(data)
-}
 
-// Logout is the handler responsible for revoking the user's session.
-// func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
-//
-// }
+	tokens, err := json.Marshal(oidcService.Tokens)
+	if err != nil {
+		rc.logger.Errorf("An error occurred while validating some tokens. Error: %v", err)
+	}
+
+	w.Write(tokens)
+}

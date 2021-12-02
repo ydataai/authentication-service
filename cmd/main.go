@@ -22,12 +22,14 @@ func main() {
 	serverConfiguration := server.HTTPServerConfiguration{}
 	oidcConfiguration := clients.OIDCConfiguration{}
 	restConfiguration := controllers.RESTControllerConfiguration{}
+	sessionConfiguration := services.SessionConfiguration{}
 
 	if err := config.InitConfigurationVariables([]config.ConfigurationVariables{
 		&loggerConfiguration,
 		&serverConfiguration,
 		&oidcConfiguration,
 		&restConfiguration,
+		&sessionConfiguration,
 	}); err != nil {
 		fmt.Println(fmt.Errorf("could not set configuration variables. Err: %v", err))
 		os.Exit(1)
@@ -37,17 +39,13 @@ func main() {
 
 	logger.Info("Starting: Authentication Service")
 
-	serverCtx := context.Background()
-	httpServer := server.NewServer(logger, serverConfiguration)
-
 	oidcClient := clients.NewOIDCClient(logger, oidcConfiguration)
 
-	restService := services.NewRESTService(logger)
+	restController := controllers.NewRESTController(restConfiguration, sessionConfiguration, oidcClient, logger)
 
-	restController := controllers.NewRESTController(restService, restConfiguration, oidcClient, logger)
-
+	httpServer := server.NewServer(logger, serverConfiguration)
 	restController.Boot(httpServer)
-	httpServer.Run(serverCtx)
+	httpServer.Run(context.Background())
 	logger.Infof("Running Server [%v:%v]", serverConfiguration.Host, serverConfiguration.Port)
 
 	for err := range errChan {
