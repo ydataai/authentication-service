@@ -37,16 +37,10 @@ func NewRESTController(
 
 // Boot initialize creating some routes
 func (rc RESTController) Boot(s *server.Server) {
-	s.Router.GET("/healthz", rc.healthCheck())
+	s.AddHealthz()
 
 	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.RedirectToOIDCProvider))
 	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.OIDCProviderCallback))
-}
-
-func (rc RESTController) healthCheck() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		ctx.Status(http.StatusNoContent)
-	}
 }
 
 // RedirectToOIDCProvider is the handler responsible for redirecting to the OIDC Provider
@@ -62,19 +56,23 @@ func (rc RESTController) RedirectToOIDCProvider(w http.ResponseWriter, r *http.R
 	http.Redirect(w, r, session.CreateOIDCProviderURL(rc.oidcClient), http.StatusFound)
 }
 
-// OIDCProviderCallback returns with auth code
+// OIDCProviderCallback returns with authentication code
 func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), rc.configuration.HTTPRequestTimeout)
 	defer cancel()
 
-	oidcService := services.NewOIDCService(ctx, rc.logger, rc.oidcClient, w, r)
-
-	rc.logger.Info("Login validated with ID token")
-
-	tokens, err := json.Marshal(oidcService.Tokens)
+	oidcService := services.NewOIDCService(rc.logger, rc.oidcClient)
+	token, err := oidcService.TokenClaims(ctx, w, r)
 	if err != nil {
-		rc.logger.Errorf("An error occurred while validating some tokens. Error: %v", err)
+		return
 	}
 
-	w.Write(tokens)
+	// creates JSON data to display as body content
+	jsonBody, err := json.Marshal(token)
+	if err != nil {
+		rc.logger.Errorf("An error occurred while validating some tokens. Error: %v", err)
+		return
+	}
+
+	w.Write(jsonBody)
 }

@@ -6,7 +6,7 @@ require (
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/gin-gonic/gin v1.7.4
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/ydataai/go-core v0.1.1
+	github.com/ydataai/go-core v0.2.0
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 )
 

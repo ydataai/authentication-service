@@ -3,9 +3,12 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
+	"github.com/coreos/go-oidc"
 	"github.com/ydataai/authentication-service/internal/clients"
+	"github.com/ydataai/authentication-service/internal/models"
 	"github.com/ydataai/go-core/pkg/common/logging"
 	"golang.org/x/oauth2"
 )
@@ -14,48 +17,87 @@ import (
 type Tokens struct {
 	OAuth2Token   *oauth2.Token
 	IDTokenClaims *json.RawMessage // ID Token payload is just JSON
+	CustomClaims  models.CustomClaims
 }
 
 // OIDCService defines the oidc server struct
 type OIDCService struct {
-	Tokens
 	logger logging.Logger
+	client *clients.OIDCClient
 }
 
-// NewOIDCService creates tokens
-func NewOIDCService(ctx context.Context, logger logging.Logger, oidcClient *clients.OIDCClient,
-	w http.ResponseWriter, r *http.Request) *OIDCService {
-
-	// TODO: should we do the status check and nonce?
-	// if so, we should save somewhere to compare it with the request.
-
-	oauth2Token, err := oidcClient.OAuth2Config.Exchange(ctx, r.URL.Query().Get("code"))
-	if err != nil {
-		http.Error(w, "Failed to exchange token: "+err.Error(), http.StatusInternalServerError)
-		return nil
+// NewOIDCService creates a new OIDC Service
+func NewOIDCService(logger logging.Logger, client *clients.OIDCClient) *OIDCService {
+	return &OIDCService{
+		logger: logger,
+		client: client,
 	}
-	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
-	if !ok {
-		http.Error(w, "No id_token field in oauth2 token.", http.StatusInternalServerError)
-		return nil
-	}
-	idToken, err := oidcClient.Verifier.Verify(ctx, rawIDToken)
+}
+
+// TokenClaims creates token claims
+func (osvc *OIDCService) TokenClaims(ctx context.Context,
+	w http.ResponseWriter, r *http.Request) (*Tokens, error) {
+
+	oauth2Token, err := osvc.createOAuth2Token(ctx, w, r)
 	if err != nil {
-		http.Error(w, "Failed to verify ID Token: "+err.Error(), http.StatusInternalServerError)
-		return nil
+		osvc.logger.Errorf("An error occurred while creating OAuth2 Token. [Error]: %v", err)
+		return nil, err
+	}
+
+	idToken, err := osvc.validateIDToken(ctx, oauth2Token, w, r)
+	if err != nil {
+		osvc.logger.Errorf("An error occurred while validating ID Token. [Error]: %v", err)
+		return nil, err
 	}
 
 	idTokenClaims := new(json.RawMessage)
 	if err := idToken.Claims(&idTokenClaims); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return nil
+		return nil, err
 	}
 
-	return &OIDCService{
-		Tokens: Tokens{
-			OAuth2Token:   oauth2Token,
-			IDTokenClaims: idTokenClaims,
-		},
-		logger: logger,
+	cc := models.CustomClaims{}
+	if err := idToken.Claims(&cc); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return nil, err
 	}
+
+	return &Tokens{
+		OAuth2Token:   oauth2Token,
+		IDTokenClaims: idTokenClaims,
+		CustomClaims:  cc,
+	}, nil
+}
+
+// createOAuth2Token creates a new OAuth2 token
+func (osvc *OIDCService) createOAuth2Token(ctx context.Context,
+	w http.ResponseWriter, r *http.Request) (*oauth2.Token, error) {
+
+	oauth2Token, err := osvc.client.OAuth2Config.Exchange(ctx, r.URL.Query().Get("code"))
+	if err != nil {
+		http.Error(w, "Failed to exchange token. Error: "+err.Error(), http.StatusInternalServerError)
+		return nil, err
+	}
+
+	return oauth2Token, nil
+}
+
+// validateIDToken validates the ID token
+func (osvc *OIDCService) validateIDToken(ctx context.Context, oauth2Token *oauth2.Token,
+	w http.ResponseWriter, r *http.Request) (*oidc.IDToken, error) {
+
+	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
+	if !ok {
+		err := errors.New("no id_token field in oauth2 token")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return nil, err
+	}
+	idToken, err := osvc.client.Verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		http.Error(w, "Failed to verify ID Token: "+err.Error(), http.StatusInternalServerError)
+		return nil, err
+	}
+	osvc.logger.Info("Login validated with ID token")
+
+	return idToken, nil
 }
