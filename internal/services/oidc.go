@@ -91,3 +91,8 @@ func (osvc *OIDCService) validateIDToken(ctx context.Context, oauth2Token *oauth
 func (osvc *OIDCService) CreateOIDCProviderURL(state, nonce string) string {
 	return osvc.client.OAuth2Config.AuthCodeURL(state, oidc.Nonce(nonce))
 }
+
+// GetReadyzFunc make sure if oidc provider is ready
+func (osvc OIDCService) GetReadyzFunc() bool {
+	return osvc.client.ReadyzFunc()
+}

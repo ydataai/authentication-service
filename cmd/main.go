@@ -41,6 +41,9 @@ func main() {
 
 	oidcClient := clients.NewOIDCClient(logger, oidcConfiguration)
 
+	// Start OIDC Provider Setup
+	go oidcClient.Setup()
+
 	oidcService := services.NewOIDCService(logger, oidcClient)
 	sessionService := services.NewSessionService(logger, sessionConfiguration)
 
