@@ -6,22 +6,28 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/coreos/go-oidc"
-	"github.com/ydataai/authentication-service/internal/clients"
 	"github.com/ydataai/go-core/pkg/common/logging"
 )
 
-// Session is a struct to temporarily saving state and nonce
-type Session struct {
+// SessionService is a struct to temporarily saving state and nonce
+type SessionService struct {
 	configuration SessionConfiguration
 	State         string
 	Nonce         string
 	logger        logging.Logger
 }
 
-// NewSession creates a new session with temporary state and nonce
-func NewSession(logger logging.Logger, configuration SessionConfiguration,
-	w http.ResponseWriter, r *http.Request) (*Session, error) {
+// NewSessionService creates a new session
+func NewSessionService(logger logging.Logger, config SessionConfiguration) *SessionService {
+	return &SessionService{
+		configuration: config,
+		logger:        logger,
+	}
+}
+
+// CreateCookie creates a cookie with with temporary state and nonce
+func (s *SessionService) CreateCookie(w http.ResponseWriter,
+	r *http.Request) (*SessionService, error) {
 
 	state, err := randomString(16)
 	if err != nil {
@@ -32,17 +38,13 @@ func NewSession(logger logging.Logger, configuration SessionConfiguration,
 		return nil, err
 	}
 
-	s := &Session{
-		configuration: configuration,
-		State:         state,
-		Nonce:         nonce,
-		logger:        logger,
-	}
-
 	s.setSessionCookie(w, r, "state", state)
 	s.setSessionCookie(w, r, "nonce", nonce)
 
-	return s, nil
+	return &SessionService{
+		State: state,
+		Nonce: nonce,
+	}, nil
 }
 
 // randomString creates a random string and does a base64 encoding
@@ -55,7 +57,7 @@ func randomString(nByte int) (string, error) {
 }
 
 // setSessionCookie sets a cookie for the session
-func (s Session) setSessionCookie(w http.ResponseWriter, r *http.Request, name, value string) {
+func (s SessionService) setSessionCookie(w http.ResponseWriter, r *http.Request, name, value string) {
 	c := &http.Cookie{
 		Name:     name,
 		Value:    value,
@@ -64,9 +66,4 @@ func (s Session) setSessionCookie(w http.ResponseWriter, r *http.Request, name, 
 		HttpOnly: true,
 	}
 	http.SetCookie(w, c)
-}
-
-// CreateOIDCProviderURL creates OIDC provider URL with some properties
-func (s Session) CreateOIDCProviderURL(oidcClient *clients.OIDCClient) string {
-	return oidcClient.OAuth2Config.AuthCodeURL(s.State, oidc.Nonce(s.Nonce))
 }

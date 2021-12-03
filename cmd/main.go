@@ -41,7 +41,10 @@ func main() {
 
 	oidcClient := clients.NewOIDCClient(logger, oidcConfiguration)
 
-	restController := controllers.NewRESTController(restConfiguration, sessionConfiguration, oidcClient, logger)
+	oidcService := services.NewOIDCService(logger, oidcClient)
+	sessionService := services.NewSessionService(logger, sessionConfiguration)
+
+	restController := controllers.NewRESTController(logger, restConfiguration, oidcService, sessionService)
 
 	httpServer := server.NewServer(logger, serverConfiguration)
 	restController.Boot(httpServer)

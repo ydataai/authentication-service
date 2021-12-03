@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/ydataai/authentication-service/internal/clients"
 	"github.com/ydataai/authentication-service/internal/services"
 	"github.com/ydataai/go-core/pkg/common/logging"
 	"github.com/ydataai/go-core/pkg/common/server"
@@ -15,45 +14,43 @@ import (
 
 // RESTController defines rest controller
 type RESTController struct {
-	configuration RESTControllerConfiguration
-	sessionConfig services.SessionConfiguration
-	oidcClient    *clients.OIDCClient
-	logger        logging.Logger
+	configuration  RESTControllerConfiguration
+	oidcService    *services.OIDCService
+	sessionService *services.SessionService
+	logger         logging.Logger
 }
 
 // NewRESTController initializes rest controller
 func NewRESTController(
+	logger logging.Logger,
 	configuration RESTControllerConfiguration,
-	sessionConfig services.SessionConfiguration,
-	oidcClient *clients.OIDCClient,
-	logger logging.Logger) RESTController {
+	oidcService *services.OIDCService,
+	sessionService *services.SessionService,
+) RESTController {
 	return RESTController{
-		configuration: configuration,
-		sessionConfig: sessionConfig,
-		oidcClient:    oidcClient,
-		logger:        logger,
+		configuration:  configuration,
+		oidcService:    oidcService,
+		sessionService: sessionService,
+		logger:         logger,
 	}
 }
 
 // Boot initialize creating some routes
 func (rc RESTController) Boot(s *server.Server) {
 	s.AddHealthz()
-
 	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.RedirectToOIDCProvider))
 	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.OIDCProviderCallback))
 }
 
 // RedirectToOIDCProvider is the handler responsible for redirecting to the OIDC Provider
 func (rc RESTController) RedirectToOIDCProvider(w http.ResponseWriter, r *http.Request) {
-	session, err := services.NewSession(rc.logger, rc.sessionConfig, w, r)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		rc.logger.Errorf("Internal Error %v", http.StatusInternalServerError)
-		return
-	}
+	rc.sessionService.CreateCookie(w, r)
 
 	rc.logger.Info("Redirecting to OIDC Provider...")
-	http.Redirect(w, r, session.CreateOIDCProviderURL(rc.oidcClient), http.StatusFound)
+	http.Redirect(w, r,
+		rc.oidcService.CreateOIDCProviderURL(rc.sessionService.State, rc.sessionService.Nonce),
+		http.StatusFound,
+	)
 }
 
 // OIDCProviderCallback returns with authentication code
@@ -61,8 +58,7 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	ctx, cancel := context.WithTimeout(context.Background(), rc.configuration.HTTPRequestTimeout)
 	defer cancel()
 
-	oidcService := services.NewOIDCService(rc.logger, rc.oidcClient)
-	token, err := oidcService.TokenClaims(ctx, w, r)
+	token, err := rc.oidcService.TokenClaims(ctx, w, r)
 	if err != nil {
 		return
 	}

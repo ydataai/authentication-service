@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -15,22 +14,21 @@ import (
 
 // Tokens defines the token struct
 type Tokens struct {
-	OAuth2Token   *oauth2.Token
-	IDTokenClaims *json.RawMessage // ID Token payload is just JSON
-	CustomClaims  models.CustomClaims
+	OAuth2Token  *oauth2.Token
+	CustomClaims models.CustomClaims
 }
 
 // OIDCService defines the oidc server struct
 type OIDCService struct {
-	logger logging.Logger
 	client *clients.OIDCClient
+	logger logging.Logger
 }
 
 // NewOIDCService creates a new OIDC Service
 func NewOIDCService(logger logging.Logger, client *clients.OIDCClient) *OIDCService {
 	return &OIDCService{
-		logger: logger,
 		client: client,
+		logger: logger,
 	}
 }
 
@@ -50,12 +48,6 @@ func (osvc *OIDCService) TokenClaims(ctx context.Context,
 		return nil, err
 	}
 
-	idTokenClaims := new(json.RawMessage)
-	if err := idToken.Claims(&idTokenClaims); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return nil, err
-	}
-
 	cc := models.CustomClaims{}
 	if err := idToken.Claims(&cc); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -63,9 +55,8 @@ func (osvc *OIDCService) TokenClaims(ctx context.Context,
 	}
 
 	return &Tokens{
-		OAuth2Token:   oauth2Token,
-		IDTokenClaims: idTokenClaims,
-		CustomClaims:  cc,
+		OAuth2Token:  oauth2Token,
+		CustomClaims: cc,
 	}, nil
 }
 
@@ -100,4 +91,9 @@ func (osvc *OIDCService) validateIDToken(ctx context.Context, oauth2Token *oauth
 	osvc.logger.Info("Login validated with ID token")
 
 	return idToken, nil
+}
+
+// CreateOIDCProviderURL creates OIDC provider URL with some properties
+func (osvc *OIDCService) CreateOIDCProviderURL(state, nonce string) string {
+	return osvc.client.OAuth2Config.AuthCodeURL(state, oidc.Nonce(nonce))
 }

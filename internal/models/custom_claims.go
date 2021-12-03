@@ -6,4 +6,6 @@ type CustomClaims struct {
 	Email         string `json:"email"`
 	EmailVerified bool   `json:"email_verified" default:"false"`
 	Picture       string `json:"picture"`
+	Expiry        int64  `json:"exp"`
+	IssuedAt      int64  `json:"iat"`
 }
