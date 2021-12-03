@@ -54,5 +54,4 @@ func main() {
 	for err := range errChan {
 		logger.Error(err)
 	}
-
 }

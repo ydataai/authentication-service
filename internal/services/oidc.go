@@ -12,12 +12,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// Tokens defines the token struct
-type Tokens struct {
-	OAuth2Token  *oauth2.Token
-	CustomClaims models.CustomClaims
-}
-
 // OIDCService defines the oidc server struct
 type OIDCService struct {
 	client *clients.OIDCClient
@@ -34,7 +28,7 @@ func NewOIDCService(logger logging.Logger, client *clients.OIDCClient) *OIDCServ
 
 // TokenClaims creates token claims
 func (osvc *OIDCService) TokenClaims(ctx context.Context,
-	w http.ResponseWriter, r *http.Request) (*Tokens, error) {
+	w http.ResponseWriter, r *http.Request) (*models.Tokens, error) {
 
 	oauth2Token, err := osvc.createOAuth2Token(ctx, w, r)
 	if err != nil {
@@ -54,7 +48,7 @@ func (osvc *OIDCService) TokenClaims(ctx context.Context,
 		return nil, err
 	}
 
-	return &Tokens{
+	return &models.Tokens{
 		OAuth2Token:  oauth2Token,
 		CustomClaims: cc,
 	}, nil

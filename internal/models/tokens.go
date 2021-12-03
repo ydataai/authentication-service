@@ -1,5 +1,13 @@
 package models
 
+import "golang.org/x/oauth2"
+
+// Tokens defines the token struct
+type Tokens struct {
+	OAuth2Token  *oauth2.Token
+	CustomClaims CustomClaims
+}
+
 // CustomClaims defines the custom claims struct
 type CustomClaims struct {
 	Name          string `json:"name"`
