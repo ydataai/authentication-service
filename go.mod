@@ -3,8 +3,9 @@ module github.com/ydataai/authentication-service
 go 1.17
 
 require (
-	github.com/coreos/go-oidc v2.2.1+incompatible
+	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/gin-gonic/gin v1.7.4
+	github.com/golang-jwt/jwt/v4 v4.2.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/ydataai/go-core v0.2.0
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
@@ -24,7 +25,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
-	github.com/pquerna/cachecontrol v0.0.0-20171018203845-0dec1b30a021 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/ugorji/go/codec v1.1.7 // indirect

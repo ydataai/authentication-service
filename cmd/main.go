@@ -52,7 +52,6 @@ func main() {
 	httpServer := server.NewServer(logger, serverConfiguration)
 	restController.Boot(httpServer)
 	httpServer.Run(context.Background())
-	logger.Infof("Running Server [%v:%v]", serverConfiguration.Host, serverConfiguration.Port)
 
 	for err := range errChan {
 		logger.Error(err)

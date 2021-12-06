@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/coreos/go-oidc"
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/ydataai/go-core/pkg/common/logging"
 	"golang.org/x/oauth2"
 )
@@ -15,7 +15,7 @@ type OIDCClient struct {
 	OAuth2Config  *oauth2.Config
 	Verifier      *oidc.IDTokenVerifier
 	provider      *oidc.Provider
-	ReadyzFunc    func() bool
+	readyzFunc    func() bool
 	logger        logging.Logger
 }
 
@@ -23,7 +23,7 @@ type OIDCClient struct {
 func NewOIDCClient(logger logging.Logger, config OIDCConfiguration) *OIDCClient {
 	return &OIDCClient{
 		configuration: config,
-		ReadyzFunc:    func() bool { return false },
+		readyzFunc:    func() bool { return false },
 		logger:        logger,
 	}
 }
@@ -43,6 +43,7 @@ func (oc *OIDCClient) Setup() {
 		RedirectURL:  oc.configuration.OIDCRedirectURL,
 		Scopes:       oc.configuration.OIDCScopes,
 	}
+
 	oidcConfig := &oidc.Config{
 		ClientID: oc.configuration.ClientID,
 	}
@@ -50,6 +51,7 @@ func (oc *OIDCClient) Setup() {
 	oc.Verifier = oc.provider.Verifier(oidcConfig)
 }
 
+// isAvailable ensures that the service is available after identifying an OIDC Provider.
 func (oc *OIDCClient) isAvailable(ctx context.Context) {
 	var err error
 
@@ -58,9 +60,20 @@ func (oc *OIDCClient) isAvailable(ctx context.Context) {
 		if err == nil {
 			break
 		}
-		oc.logger.Errorf("OIDC provider setup failed, retrying in 10 seconds: %v", err)
+		oc.logger.Errorf("[✖️] OIDC Provider setup failed. Error: %v | Retrying in 10 seconds...", err)
 		time.Sleep(10 * time.Second)
 	}
+	oc.logger.Info("[✔️] Connected to OIDC Provider")
 
-	oc.ReadyzFunc = func() bool { return true }
+	oc.readyzFunc = func() bool { return true }
+}
+
+// GetReadyzFunc make sure if OIDC Provider is ready.
+func (oc *OIDCClient) GetReadyzFunc() bool {
+	return oc.readyzFunc()
+}
+
+// GetProvider gets provider function
+func (oc *OIDCClient) GetProvider() *oidc.Provider {
+	return oc.provider
 }
