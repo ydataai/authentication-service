@@ -7,7 +7,7 @@ require (
 	github.com/gin-gonic/gin v1.7.4
 	github.com/golang-jwt/jwt/v4 v4.2.0
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/ydataai/go-core v0.2.0
+	github.com/ydataai/go-core v0.2.1
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 )
 
