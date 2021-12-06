@@ -7,6 +7,7 @@ import (
 
 	"github.com/ydataai/authentication-service/internal/clients"
 	"github.com/ydataai/authentication-service/internal/controllers"
+	"github.com/ydataai/authentication-service/internal/models"
 	"github.com/ydataai/authentication-service/internal/services"
 	"github.com/ydataai/go-core/pkg/common/config"
 	"github.com/ydataai/go-core/pkg/common/logging"
@@ -22,14 +23,14 @@ func main() {
 	serverConfiguration := server.HTTPServerConfiguration{}
 	oidcConfiguration := clients.OIDCConfiguration{}
 	restConfiguration := controllers.RESTControllerConfiguration{}
-	sessionConfiguration := services.SessionConfiguration{}
+	sessionStorageConfiguration := models.SessionStorageConfiguration{}
 
 	if err := config.InitConfigurationVariables([]config.ConfigurationVariables{
 		&loggerConfiguration,
 		&serverConfiguration,
 		&oidcConfiguration,
 		&restConfiguration,
-		&sessionConfiguration,
+		&sessionStorageConfiguration,
 	}); err != nil {
 		fmt.Println(fmt.Errorf("could not set configuration variables. Err: %v", err))
 		os.Exit(1)
@@ -42,12 +43,13 @@ func main() {
 	oidcClient := clients.NewOIDCClient(logger, oidcConfiguration)
 
 	// Start OIDC Provider Setup
-	go oidcClient.Setup()
+	oidcClient.StartSetup()
 
-	oidcService := services.NewOIDCService(logger, oidcClient)
-	sessionService := services.NewSessionService(logger, sessionConfiguration)
+	sessionStorage := models.NewSessionStorage(logger, sessionStorageConfiguration)
 
-	restController := controllers.NewRESTController(logger, restConfiguration, oidcService, sessionService)
+	oidcService := services.NewOIDCService(logger, oidcClient, sessionStorage)
+
+	restController := controllers.NewRESTController(logger, restConfiguration, oidcService)
 
 	httpServer := server.NewServer(logger, serverConfiguration)
 	restController.Boot(httpServer)

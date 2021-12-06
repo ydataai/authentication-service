@@ -2,7 +2,6 @@ package clients
 
 import (
 	"context"
-	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/ydataai/go-core/pkg/common/logging"
@@ -11,69 +10,49 @@ import (
 
 // OIDCClient defines a struct that can be used
 type OIDCClient struct {
-	configuration OIDCConfiguration
+	Configuration OIDCConfiguration
 	OAuth2Config  *oauth2.Config
 	Verifier      *oidc.IDTokenVerifier
-	provider      *oidc.Provider
-	readyzFunc    func() bool
+	Provider      *oidc.Provider
+	ReadyzFunc    func() bool
 	logger        logging.Logger
 }
 
 // NewOIDCClient defines a new values for the server
 func NewOIDCClient(logger logging.Logger, config OIDCConfiguration) *OIDCClient {
 	return &OIDCClient{
-		configuration: config,
-		readyzFunc:    func() bool { return false },
+		Configuration: config,
+		ReadyzFunc:    func() bool { return false },
 		logger:        logger,
 	}
 }
 
-// Setup initializes setup for OIDC Provider
-func (oc *OIDCClient) Setup() {
+// StartSetup initializes setup for OIDC Provider.
+func (oc *OIDCClient) StartSetup() {
+	var err error
 	ctx := context.Background()
 
-	// make sure it is available
-	oc.isAvailable(ctx)
-
-	// Configure an OpenID Connect aware OAuth2 client.
-	oc.OAuth2Config = &oauth2.Config{
-		ClientID:     oc.configuration.ClientID,
-		ClientSecret: oc.configuration.ClientSecret,
-		Endpoint:     oc.provider.Endpoint(), // Discovery returns the OAuth2 endpoints.
-		RedirectURL:  oc.configuration.OIDCRedirectURL,
-		Scopes:       oc.configuration.OIDCScopes,
-	}
-
-	oidcConfig := &oidc.Config{
-		ClientID: oc.configuration.ClientID,
-	}
-
-	oc.Verifier = oc.provider.Verifier(oidcConfig)
-}
-
-// isAvailable ensures that the service is available after identifying an OIDC Provider.
-func (oc *OIDCClient) isAvailable(ctx context.Context) {
-	var err error
-
-	for {
-		oc.provider, err = oidc.NewProvider(ctx, oc.configuration.OIDProviderURL)
-		if err == nil {
-			break
-		}
-		oc.logger.Errorf("[✖️] OIDC Provider setup failed. Error: %v | Retrying in 10 seconds...", err)
-		time.Sleep(10 * time.Second)
+	oc.Provider, err = oidc.NewProvider(ctx, oc.Configuration.OIDProviderURL)
+	if err != nil {
+		oc.logger.Fatalf("[✖️] OIDC Provider setup failed. Error: %v", err)
 	}
 	oc.logger.Info("[✔️] Connected to OIDC Provider")
 
-	oc.readyzFunc = func() bool { return true }
-}
+	// Configure an OpenID Connect aware OAuth2 client.
+	oc.OAuth2Config = &oauth2.Config{
+		ClientID:     oc.Configuration.ClientID,
+		ClientSecret: oc.Configuration.ClientSecret,
+		Endpoint:     oc.Provider.Endpoint(), // Discovery returns the OAuth2 endpoints.
+		RedirectURL:  oc.Configuration.OIDCRedirectURL,
+		Scopes:       oc.Configuration.OIDCScopes,
+	}
 
-// GetReadyzFunc make sure if OIDC Provider is ready.
-func (oc *OIDCClient) GetReadyzFunc() bool {
-	return oc.readyzFunc()
-}
+	oidcConfig := &oidc.Config{
+		ClientID: oc.Configuration.ClientID,
+	}
 
-// GetProvider gets provider function
-func (oc *OIDCClient) GetProvider() *oidc.Provider {
-	return oc.provider
+	oc.Verifier = oc.Provider.Verifier(oidcConfig)
+
+	// Setup successful.
+	oc.ReadyzFunc = func() bool { return true }
 }
