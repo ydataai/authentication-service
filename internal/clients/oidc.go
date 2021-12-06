@@ -8,7 +8,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// OIDCClient defines a struct that can be used
+// OIDCClient defines a struct that can be used.
 type OIDCClient struct {
 	Configuration OIDCConfiguration
 	OAuth2Config  *oauth2.Config
@@ -18,7 +18,7 @@ type OIDCClient struct {
 	logger        logging.Logger
 }
 
-// NewOIDCClient defines a new values for the server
+// NewOIDCClient defines a new values for the server.
 func NewOIDCClient(logger logging.Logger, config OIDCConfiguration) *OIDCClient {
 	return &OIDCClient{
 		Configuration: config,

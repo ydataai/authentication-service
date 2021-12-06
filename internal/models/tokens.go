@@ -8,7 +8,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// Tokens defines the token struct
+// Tokens defines the token struct.
 type Tokens struct {
 	OAuth2Token   *oauth2.Token
 	IDTokenClaims *json.RawMessage
@@ -16,7 +16,7 @@ type Tokens struct {
 	CustomClaims  CustomClaims
 }
 
-// CustomClaims defines the custom claims struct
+// CustomClaims defines the custom claims struct.
 type CustomClaims struct {
 	AccessToken   string `json:"access_token,omitempty"`
 	Name          string `json:"name,omitempty"`

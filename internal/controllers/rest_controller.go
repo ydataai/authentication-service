@@ -11,14 +11,14 @@ import (
 	"github.com/ydataai/go-core/pkg/common/server"
 )
 
-// RESTController defines rest controller
+// RESTController defines rest controller.
 type RESTController struct {
 	configuration RESTControllerConfiguration
 	oidcService   *services.OIDCService
 	logger        logging.Logger
 }
 
-// NewRESTController initializes rest controller
+// NewRESTController initializes rest controller.
 func NewRESTController(
 	logger logging.Logger,
 	configuration RESTControllerConfiguration,
@@ -48,7 +48,7 @@ func (rc RESTController) RedirectToOIDCProvider(w http.ResponseWriter, r *http.R
 	)
 }
 
-// OIDCProviderCallback returns with authentication code
+// OIDCProviderCallback returns with authentication code.
 func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), rc.configuration.HTTPRequestTimeout)
 	defer cancel()

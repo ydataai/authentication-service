@@ -18,14 +18,14 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// OIDCService defines the oidc server struct
+// OIDCService defines the oidc server struct.
 type OIDCService struct {
 	client         *clients.OIDCClient
 	sessionStorage *models.SessionStorage
 	logger         logging.Logger
 }
 
-// NewOIDCService creates a new OIDC Service
+// NewOIDCService creates a new OIDC Service.
 func NewOIDCService(logger logging.Logger,
 	client *clients.OIDCClient,
 	sessionStorage *models.SessionStorage) *OIDCService {
@@ -36,7 +36,7 @@ func NewOIDCService(logger logging.Logger,
 	}
 }
 
-// GetReadyzFunc make sure if oidc provider is ready
+// GetReadyzFunc make sure if oidc provider is ready.
 func (osvc *OIDCService) GetReadyzFunc() func() bool {
 	return osvc.client.ReadyzFunc
 }
@@ -127,7 +127,7 @@ func (osvc *OIDCService) IsFlowSecure(ctx context.Context,
 	return jsonBody
 }
 
-// claimsToken creates token claims
+// claimsToken creates token claims.
 func (osvc *OIDCService) claimsToken(ctx context.Context,
 	w http.ResponseWriter, r *http.Request) (*models.Tokens, error) {
 
@@ -178,7 +178,7 @@ func (osvc *OIDCService) claimsToken(ctx context.Context,
 	}, nil
 }
 
-// createOAuth2Token creates a new OAuth2 token
+// createOAuth2Token creates a new OAuth2 token.
 func (osvc *OIDCService) createOAuth2Token(ctx context.Context,
 	w http.ResponseWriter, r *http.Request) (*oauth2.Token, error) {
 
@@ -190,7 +190,7 @@ func (osvc *OIDCService) createOAuth2Token(ctx context.Context,
 	return oauth2Token, nil
 }
 
-// validateIDToken validates the ID token
+// validateIDToken validates the ID token.
 func (osvc *OIDCService) validateIDToken(ctx context.Context, oauth2Token *oauth2.Token,
 	w http.ResponseWriter, r *http.Request) (*oidc.IDToken, error) {
 
@@ -234,7 +234,7 @@ func (osvc *OIDCService) createJWT(cc *models.CustomClaims) (*models.CustomClaim
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, customClaims)
 
-	// Sign and get the complete encoded token as a string using the secret
+	// Sign and get the complete encoded token as a string using the secret.
 	customClaims.AccessToken, err = token.SignedString(hmacRandSecret)
 
 	return customClaims, err
