@@ -72,11 +72,6 @@ func (osvc *OIDCService) ClaimsToken(ctx context.Context, code string) (models.T
 		return models.Tokens{}, errors.New("An error occurred while validating ID Token. Error: " + err.Error())
 	}
 
-	userInfo, err := osvc.getUserInfo(ctx, oauth2Token)
-	if err != nil {
-		return models.Tokens{}, errors.New("Failed to get UserInfo. Error: " + err.Error())
-	}
-
 	cc := models.CustomClaims{}
 	if err := idToken.Claims(&cc); err != nil {
 		return models.Tokens{}, errors.New("An unexpected error has occurred. Error: " + err.Error())
@@ -85,7 +80,6 @@ func (osvc *OIDCService) ClaimsToken(ctx context.Context, code string) (models.T
 	return models.Tokens{
 		OAuth2Token:   oauth2Token,
 		IDTokenClaims: idTokenClaims,
-		UserInfo:      userInfo,
 		CustomClaims:  cc,
 	}, nil
 }
@@ -112,32 +106,6 @@ func (osvc *OIDCService) IsFlowSecure(state string, token models.Tokens) (bool, 
 	return true, nil
 }
 
-// CreateJSONData creates json data to display as body content.
-func (osvc *OIDCService) CreateJSONData(token models.Tokens) ([]byte, error) {
-	jwt, err := osvc.createJWT(&token.CustomClaims)
-	if err != nil {
-		return nil, errors.New("an error occurred while creating a JWT. Error: " + err.Error())
-	}
-
-	// If all goes well, then create the JSON data to display as body content.
-	jsonBody, err := json.Marshal(jwt)
-	if err != nil {
-		return nil, errors.New("an error occurred while validating some tokens. Error: " + err.Error())
-	}
-
-	return jsonBody, nil
-}
-
-// getUserInfo gets User Info from the OAuth2 Token.
-func (osvc *OIDCService) getUserInfo(ctx context.Context, oauth2Token *oauth2.Token) (*oidc.UserInfo, error) {
-	userInfo, err := osvc.client.Provider.UserInfo(ctx, oauth2.StaticTokenSource(oauth2Token))
-	if err != nil {
-		return nil, err
-	}
-
-	return userInfo, nil
-}
-
 // getValueFromToken gets the nonce from the ID Token.
 func (osvc *OIDCService) getValueFromToken(value string, t models.Tokens) (interface{}, error) {
 	var m map[string]interface{}
@@ -152,30 +120,30 @@ func (osvc *OIDCService) getValueFromToken(value string, t models.Tokens) (inter
 }
 
 // validateIDToken validates the ID token.
-func (osvc *OIDCService) validateIDToken(ctx context.Context, oauth2Token *oauth2.Token) (*oidc.IDToken, error) {
+func (osvc *OIDCService) validateIDToken(ctx context.Context, oauth2Token *oauth2.Token) (oidc.IDToken, error) {
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
-		return nil, errors.New("no id_token field in oauth2 token")
+		return oidc.IDToken{}, errors.New("no id_token field in oauth2 token")
 	}
 	idToken, err := osvc.client.Verifier.Verify(ctx, rawIDToken)
 	if err != nil {
-		return nil, errors.New("failed to verify ID Token. Error: " + err.Error())
+		return oidc.IDToken{}, errors.New("failed to verify ID Token. Error: " + err.Error())
 	}
 	osvc.logger.Info("[✔️] Login validated with ID token")
 
-	return idToken, nil
+	return *idToken, nil
 }
 
-// createJWT creates a new token and the claims you would like it to contain.
-func (osvc *OIDCService) createJWT(cc *models.CustomClaims) (*models.CustomClaims, error) {
+// CreateJWT creates a new token and the claims you would like it to contain.
+func (osvc *OIDCService) CreateJWT(cc *models.CustomClaims) (models.CustomClaims, error) {
 	// For HMAC signing method, the key can be any []byte
 	hmacRandSecret, err := randomByte(1990)
 	if err != nil {
 		osvc.logger.Errorf("An error occurred while generating HMAC. Error: %v", err)
-		return nil, err
+		return models.CustomClaims{}, err
 	}
 
-	customClaims := &models.CustomClaims{
+	customClaims := models.CustomClaims{
 		Name:          cc.Name,
 		Email:         cc.Email,
 		EmailVerified: cc.EmailVerified,

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -57,7 +58,7 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	stateProvider := r.URL.Query().Get("state")
 	codeProvider := r.URL.Query().Get("code")
 
-	// creates an OAuth2 token with the auth code returned from the OIDC Provider.
+	// Creates an OAuth2 token with the auth code returned from the OIDC Provider.
 	token, err := rc.oidcService.ClaimsToken(ctx, codeProvider)
 	if err != nil {
 		rc.logger.Error(err)
@@ -74,11 +75,17 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// If the flow is secure, a JSON data to display as body content will be returned.
-	jsonBody, err := rc.oidcService.CreateJSONData(token)
+	// If the flow is secure, a JWT will be created...
+	jwt, err := rc.oidcService.CreateJWT(&token.CustomClaims)
 	if err != nil {
-		rc.logger.Error(err)
+		rc.logger.Error("an error occurred while creating a JWT. Error: " + err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// ...and then a JSON data to display as body content.
+	jsonBody, err := json.Marshal(jwt)
+	if err != nil {
+		rc.logger.Error("an error occurred while validating some claims. Error: " + err.Error())
 		return
 	}
 

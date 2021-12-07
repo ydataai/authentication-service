@@ -3,7 +3,6 @@ package models
 import (
 	"encoding/json"
 
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/oauth2"
 )
@@ -12,7 +11,6 @@ import (
 type Tokens struct {
 	OAuth2Token   *oauth2.Token
 	IDTokenClaims *json.RawMessage
-	UserInfo      *oidc.UserInfo
 	CustomClaims  CustomClaims
 }
 
