@@ -106,6 +106,33 @@ func (osvc *OIDCService) IsFlowSecure(state string, token models.Tokens) (bool, 
 	return true, nil
 }
 
+// CreateJWT creates a new token and the claims you would like it to contain.
+func (osvc *OIDCService) CreateJWT(cc *models.CustomClaims) (models.CustomClaims, error) {
+	// For HMAC signing method, the key can be any []byte
+	hmacRandSecret, err := randomByte(1990)
+	if err != nil {
+		osvc.logger.Errorf("An error occurred while generating HMAC. Error: %v", err)
+		return models.CustomClaims{}, err
+	}
+
+	customClaims := models.CustomClaims{
+		Name:    cc.Name,
+		Email:   cc.Email,
+		Profile: cc.Profile,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(osvc.client.Configuration.JWTExpires))),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, customClaims)
+
+	// Sign and get the complete encoded token as a string using the secret.
+	customClaims.AccessToken, err = token.SignedString(hmacRandSecret)
+
+	return customClaims, err
+}
+
 // getValueFromToken gets the nonce from the ID Token.
 func (osvc *OIDCService) getValueFromToken(value string, t models.Tokens) (interface{}, error) {
 	var m map[string]interface{}
@@ -132,33 +159,6 @@ func (osvc *OIDCService) validateIDToken(ctx context.Context, oauth2Token *oauth
 	osvc.logger.Info("[✔️] Login validated with ID token")
 
 	return *idToken, nil
-}
-
-// CreateJWT creates a new token and the claims you would like it to contain.
-func (osvc *OIDCService) CreateJWT(cc *models.CustomClaims) (models.CustomClaims, error) {
-	// For HMAC signing method, the key can be any []byte
-	hmacRandSecret, err := randomByte(1990)
-	if err != nil {
-		osvc.logger.Errorf("An error occurred while generating HMAC. Error: %v", err)
-		return models.CustomClaims{}, err
-	}
-
-	customClaims := models.CustomClaims{
-		Name:    cc.Name,
-		Email:   cc.Email,
-		Profile: cc.Profile,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(osvc.client.Configuration.JWTExpires))),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, customClaims)
-
-	// Sign and get the complete encoded token as a string using the secret.
-	customClaims.AccessToken, err = token.SignedString(hmacRandSecret)
-
-	return customClaims, err
 }
 
 // randomByte creates a random byte value.
