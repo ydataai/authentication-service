@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"time"
 
@@ -70,23 +69,17 @@ func (osvc *OIDCService) ClaimsToken(ctx context.Context, code string) (models.T
 
 	idTokenClaims := new(json.RawMessage)
 	if err := idToken.Claims(&idTokenClaims); err != nil {
-		msg := fmt.Sprintf("An error occurred while validating ID Token. Error: %v", err)
-		osvc.logger.Error(msg)
-		return models.Tokens{}, err
+		return models.Tokens{}, errors.New("An error occurred while validating ID Token. Error: " + err.Error())
 	}
 
 	userInfo, err := osvc.getUserInfo(ctx, oauth2Token)
 	if err != nil {
-		msg := fmt.Sprintf("Failed to get UserInfo. Error: %v", err)
-		osvc.logger.Error(msg)
-		return models.Tokens{}, err
+		return models.Tokens{}, errors.New("Failed to get UserInfo. Error: " + err.Error())
 	}
 
 	cc := models.CustomClaims{}
 	if err := idToken.Claims(&cc); err != nil {
-		msg := fmt.Sprintf("An unexpected error has occurred. Error: %v", err)
-		osvc.logger.Error(msg)
-		return models.Tokens{}, err
+		return models.Tokens{}, errors.New("An unexpected error has occurred. Error: " + err.Error())
 	}
 
 	return models.Tokens{
@@ -105,7 +98,6 @@ func (osvc *OIDCService) IsFlowSecure(state string, token models.Tokens) (bool, 
 
 	session, err := osvc.sessionStorage.GetSession(state)
 	if err != nil {
-		osvc.logger.Error(err)
 		return false, err
 	}
 
