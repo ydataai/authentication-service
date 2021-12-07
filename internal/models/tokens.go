@@ -16,12 +16,10 @@ type Tokens struct {
 
 // CustomClaims defines the custom claims struct.
 type CustomClaims struct {
-	AccessToken   string `json:"access_token,omitempty"`
-	Name          string `json:"name,omitempty"`
-	Email         string `json:"email,omitempty"`
-	EmailVerified bool   `json:"email_verified,omitempty" default:"false"`
-	Picture       string `json:"picture,omitempty"`
-	Profile       string `json:"profile,omitempty"`
+	AccessToken string `json:"access_token,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Email       string `json:"email,omitempty"`
+	Profile     string `json:"profile,omitempty"`
 	// The "aud" (audience) claim identifies the recipients that the JWT is intended for.
 	// See more at: https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.3
 	Audience string `json:"aud,omitempty"`

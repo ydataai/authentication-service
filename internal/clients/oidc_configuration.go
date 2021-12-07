@@ -14,7 +14,6 @@ type OIDCConfiguration struct {
 	OIDCRedirectURL string        `envconfig:"OIDC_REDIRECT_URL" required:"true"`
 	OIDCScopes      []string      `envconfig:"OIDC_SCOPES" default:"openid,profile,email" split_words:"true"`
 	JWTExpires      time.Duration `envconfig:"JWT_EXPIRES_AT" default:"24h"`
-	Issuer          string        `envconfig:"SESSION_ISSUER" default:"http://authorization-service:5555/"`
 }
 
 // LoadFromEnvVars from the OIDC.

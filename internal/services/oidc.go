@@ -144,14 +144,11 @@ func (osvc *OIDCService) CreateJWT(cc *models.CustomClaims) (models.CustomClaims
 	}
 
 	customClaims := models.CustomClaims{
-		Name:          cc.Name,
-		Email:         cc.Email,
-		EmailVerified: cc.EmailVerified,
-		Picture:       cc.Picture,
-		Profile:       cc.Profile,
+		Name:    cc.Name,
+		Email:   cc.Email,
+		Profile: cc.Profile,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(osvc.client.Configuration.JWTExpires))),
-			Issuer:    osvc.client.Configuration.Issuer,
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
