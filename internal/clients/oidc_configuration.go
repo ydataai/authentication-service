@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
-	"github.com/ydataai/authentication-service/internal/handlers"
 )
 
 // OIDCConfiguration defines a struct with required environment variables for a OpenID Connect.
@@ -25,9 +24,19 @@ func (oc *OIDCConfiguration) LoadFromEnvVars() error {
 	}
 
 	// "openid" is a required scope for OpenID Connect flows.
-	if !handlers.ArrayContainsString(oc.OIDCScopes, "openid") {
+	if !arrayContainsString(oc.OIDCScopes, "openid") {
 		oc.OIDCScopes = append(oc.OIDCScopes, "openid")
 	}
 
 	return nil
+}
+
+// arrayContainsString is a helper to find out if a given string is inside an array or not.
+func arrayContainsString(list []string, key string) bool {
+	for _, value := range list {
+		if key == value {
+			return true
+		}
+	}
+	return false
 }

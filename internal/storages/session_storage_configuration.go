@@ -1,4 +1,4 @@
-package models
+package storages
 
 import (
 	"github.com/kelseyhightower/envconfig"

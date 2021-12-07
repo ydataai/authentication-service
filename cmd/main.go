@@ -7,8 +7,8 @@ import (
 
 	"github.com/ydataai/authentication-service/internal/clients"
 	"github.com/ydataai/authentication-service/internal/controllers"
-	"github.com/ydataai/authentication-service/internal/models"
 	"github.com/ydataai/authentication-service/internal/services"
+	"github.com/ydataai/authentication-service/internal/storages"
 	"github.com/ydataai/go-core/pkg/common/config"
 	"github.com/ydataai/go-core/pkg/common/logging"
 	"github.com/ydataai/go-core/pkg/common/server"
@@ -23,7 +23,7 @@ func main() {
 	serverConfiguration := server.HTTPServerConfiguration{}
 	oidcConfiguration := clients.OIDCConfiguration{}
 	restConfiguration := controllers.RESTControllerConfiguration{}
-	sessionStorageConfiguration := models.SessionStorageConfiguration{}
+	sessionStorageConfiguration := storages.SessionStorageConfiguration{}
 
 	if err := config.InitConfigurationVariables([]config.ConfigurationVariables{
 		&loggerConfiguration,
@@ -46,7 +46,7 @@ func main() {
 	oidcClient.StartSetup()
 
 	// Initializes a storage to save temporary sessions configured with TTL.
-	sessionStorage := models.NewSessionStorage(logger, sessionStorageConfiguration)
+	sessionStorage := storages.NewSessionStorage(sessionStorageConfiguration)
 
 	oidcService := services.NewOIDCService(logger, oidcClient, sessionStorage)
 
@@ -55,6 +55,10 @@ func main() {
 	httpServer := server.NewServer(logger, serverConfiguration)
 	restController.Boot(httpServer)
 	httpServer.Run(context.Background())
+
+	// HealthCheck
+	httpServer.AddHealthz()
+	httpServer.AddReadyz(func() bool { return true })
 
 	for err := range errChan {
 		logger.Error(err)

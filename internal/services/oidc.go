@@ -7,28 +7,28 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/ydataai/authentication-service/internal/clients"
 	"github.com/ydataai/authentication-service/internal/models"
+	"github.com/ydataai/authentication-service/internal/storages"
 	"github.com/ydataai/go-core/pkg/common/logging"
 	"golang.org/x/oauth2"
 )
 
 // OIDCService defines the oidc server struct.
 type OIDCService struct {
-	client         *clients.OIDCClient
-	sessionStorage *models.SessionStorage
+	client         clients.OIDCClient
+	sessionStorage *storages.SessionStorage
 	logger         logging.Logger
 }
 
 // NewOIDCService creates a new OIDC Service.
 func NewOIDCService(logger logging.Logger,
-	client *clients.OIDCClient,
-	sessionStorage *models.SessionStorage) *OIDCService {
+	client clients.OIDCClient,
+	sessionStorage *storages.SessionStorage) *OIDCService {
 	return &OIDCService{
 		client:         client,
 		sessionStorage: sessionStorage,
@@ -36,25 +36,108 @@ func NewOIDCService(logger logging.Logger,
 	}
 }
 
-// GetReadyzFunc make sure if oidc provider is ready.
-func (osvc *OIDCService) GetReadyzFunc() func() bool {
-	return osvc.client.ReadyzFunc
-}
-
 // GetOIDCProviderURL gets OIDC provider URL from the OAuth2 configuration.
-func (osvc *OIDCService) GetOIDCProviderURL(w http.ResponseWriter, r *http.Request) string {
-	// Sets a temporary session with state and nonce to validate
+func (osvc *OIDCService) GetOIDCProviderURL() (string, error) {
+	// Creates a temporary session with state and nonce to validate
 	// when there is callback from the OIDC Provider.
-	session := osvc.sessionStorage.CreateSession()
+	session, err := models.CreateSession()
+	if err != nil {
+		return "", err
+	}
+
+	osvc.sessionStorage.StoreSession(session)
 
 	return osvc.client.OAuth2Config.AuthCodeURL(
 		session.State,
 		oidc.Nonce(session.Nonce),
-	)
+	), nil
 }
 
-// GetUserInfo gets User Info from the OAuth2 Token.
-func (osvc *OIDCService) GetUserInfo(ctx context.Context, oauth2Token *oauth2.Token) (*oidc.UserInfo, error) {
+// ClaimsToken creates claims token.
+func (osvc *OIDCService) ClaimsToken(ctx context.Context, code string) (models.Tokens, error) {
+	if code == "" {
+		return models.Tokens{}, errors.New("unable to authenticate without code returned from OIDC Provider")
+	}
+
+	oauth2Token, err := osvc.client.OAuth2Config.Exchange(ctx, code)
+	if err != nil {
+		return models.Tokens{}, errors.New("failed to exchange token. Error: " + err.Error())
+	}
+	idToken, err := osvc.validateIDToken(ctx, oauth2Token)
+	if err != nil {
+		return models.Tokens{}, err
+	}
+
+	idTokenClaims := new(json.RawMessage)
+	if err := idToken.Claims(&idTokenClaims); err != nil {
+		msg := fmt.Sprintf("An error occurred while validating ID Token. Error: %v", err)
+		osvc.logger.Error(msg)
+		return models.Tokens{}, err
+	}
+
+	userInfo, err := osvc.getUserInfo(ctx, oauth2Token)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to get UserInfo. Error: %v", err)
+		osvc.logger.Error(msg)
+		return models.Tokens{}, err
+	}
+
+	cc := models.CustomClaims{}
+	if err := idToken.Claims(&cc); err != nil {
+		msg := fmt.Sprintf("An unexpected error has occurred. Error: %v", err)
+		osvc.logger.Error(msg)
+		return models.Tokens{}, err
+	}
+
+	return models.Tokens{
+		OAuth2Token:   oauth2Token,
+		IDTokenClaims: idTokenClaims,
+		UserInfo:      userInfo,
+		CustomClaims:  cc,
+	}, nil
+}
+
+// IsFlowSecure ensures the flow is secure and then, returns a JWT token.
+func (osvc *OIDCService) IsFlowSecure(state string, token models.Tokens) (bool, error) {
+	if state == "" {
+		return false, errors.New("unable to follow a secure flow without the state returned from the OIDC Provider")
+	}
+
+	session, err := osvc.sessionStorage.GetSession(state)
+	if err != nil {
+		osvc.logger.Error(err)
+		return false, err
+	}
+
+	nonceToken, err := osvc.getValueFromToken("nonce", token)
+	if err != nil {
+		return false, err
+	}
+	if !session.MatchNonce(nonceToken.(string)) {
+		return false, errors.New("nonce did not match")
+	}
+
+	return true, nil
+}
+
+// CreateJSONData creates json data to display as body content.
+func (osvc *OIDCService) CreateJSONData(token models.Tokens) ([]byte, error) {
+	jwt, err := osvc.createJWT(&token.CustomClaims)
+	if err != nil {
+		return nil, errors.New("an error occurred while creating a JWT. Error: " + err.Error())
+	}
+
+	// If all goes well, then create the JSON data to display as body content.
+	jsonBody, err := json.Marshal(jwt)
+	if err != nil {
+		return nil, errors.New("an error occurred while validating some tokens. Error: " + err.Error())
+	}
+
+	return jsonBody, nil
+}
+
+// getUserInfo gets User Info from the OAuth2 Token.
+func (osvc *OIDCService) getUserInfo(ctx context.Context, oauth2Token *oauth2.Token) (*oidc.UserInfo, error) {
 	userInfo, err := osvc.client.Provider.UserInfo(ctx, oauth2.StaticTokenSource(oauth2Token))
 	if err != nil {
 		return nil, err
@@ -63,11 +146,11 @@ func (osvc *OIDCService) GetUserInfo(ctx context.Context, oauth2Token *oauth2.To
 	return userInfo, nil
 }
 
-// GetValueFromToken gets the nonce from the ID Token.
-func (osvc *OIDCService) GetValueFromToken(value string, t *models.Tokens) (interface{}, error) {
+// getValueFromToken gets the nonce from the ID Token.
+func (osvc *OIDCService) getValueFromToken(value string, t models.Tokens) (interface{}, error) {
 	var m map[string]interface{}
 	if err := json.Unmarshal(*t.IDTokenClaims, &m); err != nil {
-		return "", err
+		return "", errors.New("an unexpected error occurred when getting the nonce from ID Token")
 	}
 
 	if key, ok := m[value]; ok {
@@ -76,134 +159,15 @@ func (osvc *OIDCService) GetValueFromToken(value string, t *models.Tokens) (inte
 	return "", nil
 }
 
-// IsFlowSecure ensures the flow is secure and then, returns a JWT token.
-func (osvc *OIDCService) IsFlowSecure(ctx context.Context,
-	w http.ResponseWriter, r *http.Request) []byte {
-
-	token, err := osvc.claimsToken(ctx, w, r)
-	if err != nil {
-		return nil
-	}
-
-	session := osvc.sessionStorage.GetSession(r)
-	if session == nil {
-		msg := "An error occurred when trying to receive the session <nil>"
-		osvc.logger.Error(msg)
-		http.Error(w, msg, http.StatusBadRequest)
-		return nil
-	}
-
-	nonceToken, err := osvc.GetValueFromToken("nonce", token)
-	if err != nil {
-		msg := fmt.Sprintf("An unexpected error occurred when getting the nonce from ID Token. Err: %v", err)
-		osvc.logger.Errorf(msg)
-		http.Error(w, msg, http.StatusBadRequest)
-		return nil
-	}
-	if !session.MatchNonce(nonceToken.(string), r) {
-		msg := "nonce did not match"
-		osvc.logger.Error(msg)
-		http.Error(w, msg, http.StatusBadRequest)
-		return nil
-	}
-
-	jwt, err := osvc.createJWT(&token.CustomClaims)
-	if err != nil {
-		msg := fmt.Sprintf("An error occurred while creating a JWT. Error: %v", err)
-		osvc.logger.Error(msg)
-		http.Error(w, msg, http.StatusInternalServerError)
-		return nil
-	}
-
-	// If all goes well, then create the JSON data to display as body content.
-	jsonBody, err := json.Marshal(jwt)
-	if err != nil {
-		msg := fmt.Sprintf("An error occurred while validating some tokens. Error: %v", err)
-		osvc.logger.Errorf(msg)
-		http.Error(w, msg, http.StatusInternalServerError)
-		return nil
-	}
-
-	return jsonBody
-}
-
-// claimsToken creates token claims.
-func (osvc *OIDCService) claimsToken(ctx context.Context,
-	w http.ResponseWriter, r *http.Request) (*models.Tokens, error) {
-
-	oauth2Token, err := osvc.createOAuth2Token(ctx, w, r)
-	if err != nil {
-		msg := fmt.Sprintf("Failed to exchange token. Error: %v", err)
-		osvc.logger.Error(msg)
-		http.Error(w, msg, http.StatusInternalServerError)
-		return nil, err
-	}
-	idToken, err := osvc.validateIDToken(ctx, oauth2Token, w, r)
-	if err != nil {
-		msg := fmt.Sprintf("An error occurred while validating ID Token. Error: %v", err)
-		osvc.logger.Error(msg)
-		http.Error(w, msg, http.StatusInternalServerError)
-		return nil, err
-	}
-
-	idTokenClaims := new(json.RawMessage)
-	if err := idToken.Claims(&idTokenClaims); err != nil {
-		msg := fmt.Sprintf("An error occurred while validating ID Token. Error: %v", err)
-		osvc.logger.Error(msg)
-		http.Error(w, msg, http.StatusInternalServerError)
-		return nil, err
-	}
-
-	userInfo, err := osvc.GetUserInfo(ctx, oauth2Token)
-	if err != nil {
-		msg := fmt.Sprintf("Failed to get UserInfo. Error: %v", err)
-		osvc.logger.Error(msg)
-		http.Error(w, msg, http.StatusInternalServerError)
-		return nil, err
-	}
-
-	cc := models.CustomClaims{}
-	if err := idToken.Claims(&cc); err != nil {
-		msg := fmt.Sprintf("An unexpected error has occurred. Error: %v", err)
-		osvc.logger.Error(msg)
-		http.Error(w, msg, http.StatusInternalServerError)
-		return nil, err
-	}
-
-	return &models.Tokens{
-		OAuth2Token:   oauth2Token,
-		IDTokenClaims: idTokenClaims,
-		UserInfo:      userInfo,
-		CustomClaims:  cc,
-	}, nil
-}
-
-// createOAuth2Token creates a new OAuth2 token.
-func (osvc *OIDCService) createOAuth2Token(ctx context.Context,
-	w http.ResponseWriter, r *http.Request) (*oauth2.Token, error) {
-
-	oauth2Token, err := osvc.client.OAuth2Config.Exchange(ctx, r.URL.Query().Get("code"))
-	if err != nil {
-		return nil, err
-	}
-
-	return oauth2Token, nil
-}
-
 // validateIDToken validates the ID token.
-func (osvc *OIDCService) validateIDToken(ctx context.Context, oauth2Token *oauth2.Token,
-	w http.ResponseWriter, r *http.Request) (*oidc.IDToken, error) {
-
+func (osvc *OIDCService) validateIDToken(ctx context.Context, oauth2Token *oauth2.Token) (*oidc.IDToken, error) {
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
-		err := errors.New("no id_token field in oauth2 token")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return nil, err
+		return nil, errors.New("no id_token field in oauth2 token")
 	}
 	idToken, err := osvc.client.Verifier.Verify(ctx, rawIDToken)
 	if err != nil {
-		http.Error(w, "Failed to verify ID Token: "+err.Error(), http.StatusInternalServerError)
-		return nil, err
+		return nil, errors.New("failed to verify ID Token. Error: " + err.Error())
 	}
 	osvc.logger.Info("[✔️] Login validated with ID token")
 

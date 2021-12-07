@@ -8,21 +8,19 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// OIDCClient defines a struct that can be used.
+// OIDCClient defines a struct that can be used by the OIDC Service.
 type OIDCClient struct {
 	Configuration OIDCConfiguration
 	OAuth2Config  *oauth2.Config
 	Verifier      *oidc.IDTokenVerifier
 	Provider      *oidc.Provider
-	ReadyzFunc    func() bool
 	logger        logging.Logger
 }
 
 // NewOIDCClient defines a new values for the server.
-func NewOIDCClient(logger logging.Logger, config OIDCConfiguration) *OIDCClient {
-	return &OIDCClient{
+func NewOIDCClient(logger logging.Logger, config OIDCConfiguration) OIDCClient {
+	return OIDCClient{
 		Configuration: config,
-		ReadyzFunc:    func() bool { return false },
 		logger:        logger,
 	}
 }
@@ -52,7 +50,4 @@ func (oc *OIDCClient) StartSetup() {
 	}
 
 	oc.Verifier = oc.Provider.Verifier(oidcConfig)
-
-	// Setup successful.
-	oc.ReadyzFunc = func() bool { return true }
 }

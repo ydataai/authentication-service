@@ -3,73 +3,9 @@ package models
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"io"
-	"net/http"
-	"sync"
-	"time"
-
-	"github.com/ydataai/go-core/pkg/common/logging"
 )
-
-// SessionStorage is a struct to temporarily saving the session.
-type SessionStorage struct {
-	configuration SessionStorageConfiguration
-	sessions      map[string]*Session
-	mtx           sync.RWMutex
-	logger        logging.Logger
-}
-
-// NewSessionStorage creates a new temporary session and saves for validation.
-func NewSessionStorage(logger logging.Logger, config SessionStorageConfiguration) *SessionStorage {
-	ss := &SessionStorage{
-		configuration: config,
-		logger:        logger,
-		sessions:      make(map[string]*Session),
-	}
-
-	// session is deleted at MaxTTL (configurable).
-	go func() {
-		for now := range time.Tick(time.Second * 5) {
-			ss.mtx.Lock()
-			for key, value := range ss.sessions {
-				if now.Unix()-value.lastAccess > int64(config.MaxTTL) {
-					delete(ss.sessions, key)
-				}
-			}
-			ss.mtx.Unlock()
-		}
-	}()
-
-	return ss
-}
-
-// CreateSession creates a new session and saves it to memory.
-func (ss *SessionStorage) CreateSession() *Session {
-	session := NewSession(ss.logger)
-	ss.mtx.Lock()
-	ss.sessions[session.State] = session
-	ss.mtx.Unlock()
-
-	return session
-}
-
-// GetSession gets the session that have been saved in memory.
-func (ss *SessionStorage) GetSession(r *http.Request) *Session {
-	state := r.URL.Query().Get("state")
-	if state == "" {
-		ss.logger.Error("the state returned from the OIDC Provider is null")
-		return nil
-	}
-
-	ss.mtx.RLock()
-	defer ss.mtx.RUnlock()
-
-	if session, ok := ss.sessions[state]; ok {
-		return session
-	}
-	ss.logger.Error("state did not match")
-	return nil
-}
 
 // Session is a struct to temporarily saving state and nonce.
 type Session struct {
@@ -87,40 +23,28 @@ type Session struct {
 	// According to Google, you should enforce protection against replay attacks by ensuring
 	// it is presented only once.
 	Nonce string
-
-	lastAccess int64
-	logger     logging.Logger
 }
 
-// NewSession creates a new session.
-func NewSession(logger logging.Logger) *Session {
+// CreateSession creates a new session.
+func CreateSession() (Session, error) {
 	state, err := randomString(16)
 	if err != nil {
-		logger.Error("An error occurred while creating a temporary state.")
-		state = ""
+		return Session{}, errors.New("an error occurred while creating a temporary state. Error: " + err.Error())
 	}
 	nonce, err := randomString(16)
 	if err != nil {
-		logger.Error("An error occurred while creating a temporary nonce.")
-		nonce = ""
+		return Session{}, errors.New("an error occurred while creating a temporary nonce. Error: " + err.Error())
 	}
 
-	return &Session{
-		State:      state,
-		Nonce:      nonce,
-		lastAccess: time.Now().Unix(),
-		logger:     logger,
-	}
+	return Session{
+		State: state,
+		Nonce: nonce,
+	}, nil
 }
 
 // MatchNonce matches the nonce saved earlier with the nonce claim of the ID Token.
-func (s *Session) MatchNonce(nonce string, r *http.Request) bool {
-	if nonce != s.Nonce {
-		s.logger.Error("nonce did not match")
-		return false
-	}
-
-	return true
+func (s Session) MatchNonce(nonce string) bool {
+	return nonce == s.Nonce
 }
 
 // randomString creates a random string and does a base64 encoding.
