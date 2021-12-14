@@ -2,19 +2,19 @@ package services
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
-	"io"
+	"fmt"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v4"
+	"golang.org/x/oauth2"
+
 	"github.com/ydataai/authentication-service/internal/clients"
 	"github.com/ydataai/authentication-service/internal/models"
 	"github.com/ydataai/authentication-service/internal/storages"
 	"github.com/ydataai/go-core/pkg/common/logging"
-	"golang.org/x/oauth2"
 )
 
 // OIDCService defines the oidc server struct.
@@ -34,6 +34,11 @@ func NewOIDCService(logger logging.Logger,
 		logger:         logger,
 	}
 }
+
+var (
+	HMACSecret   = []byte("YData") // For HMAC signing method, the key can be any []byte
+	invalidToken = map[string]interface{}{"access_token": "This is an invalid token"}
+)
 
 // GetOIDCProviderURL gets OIDC provider URL from the OAuth2 configuration.
 func (osvc *OIDCService) GetOIDCProviderURL() (string, error) {
@@ -106,21 +111,17 @@ func (osvc *OIDCService) IsFlowSecure(state string, token models.Tokens) (bool, 
 	return true, nil
 }
 
-// CreateJWT creates a new token and the claims you would like it to contain.
+// CreateJWT creates a new JWT token and Custom Claims.
 func (osvc *OIDCService) CreateJWT(cc *models.CustomClaims) (models.CustomClaims, error) {
-	// For HMAC signing method, the key can be any []byte
-	hmacRandSecret, err := randomByte(1990)
-	if err != nil {
-		osvc.logger.Errorf("An error occurred while generating HMAC. Error: %v", err)
-		return models.CustomClaims{}, err
-	}
+	var err error
 
 	customClaims := models.CustomClaims{
-		Name:    cc.Name,
-		Email:   cc.Email,
-		Profile: cc.Profile,
+		Name:     cc.Name,
+		Email:    cc.Email,
+		Profile:  cc.Profile,
+		Audience: cc.Audience,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(osvc.client.Configuration.JWTExpires))),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(osvc.client.Configuration.UserJWTExpires))),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
@@ -128,9 +129,55 @@ func (osvc *OIDCService) CreateJWT(cc *models.CustomClaims) (models.CustomClaims
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, customClaims)
 
 	// Sign and get the complete encoded token as a string using the secret.
-	customClaims.AccessToken, err = token.SignedString(hmacRandSecret)
+	customClaims.AccessToken, err = token.SignedString(HMACSecret)
 
 	return customClaims, err
+}
+
+// ValidateJWT validates the token and returns the claims.
+// even if there is an error, return the invalid token instead of nil.
+func (osvc *OIDCService) ValidateJWT(tokenString string) (map[string]interface{}, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Don't forget to validate the alg is what you expect:
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+
+		return HMACSecret, nil
+	})
+
+	if token == nil {
+		return invalidToken, errors.New("an unexpected error occurred while validating the JWT token")
+	}
+
+	if token.Valid {
+		claims := token.Claims.(jwt.MapClaims)
+		claims["access_token"] = tokenString
+
+		return claims, nil
+
+	} else if ve, ok := err.(*jwt.ValidationError); ok {
+		if ve.Errors&jwt.ValidationErrorMalformed != 0 {
+			return invalidToken, errors.New("that's not even a token: " + tokenString)
+
+		} else if ve.Errors&(jwt.ValidationErrorExpired|jwt.ValidationErrorNotValidYet) != 0 {
+			return invalidToken, errors.New("token is either expired or not active yet " + tokenString)
+
+		} else {
+			return invalidToken, errors.New("couldn't handle this token: " + err.Error())
+		}
+	}
+
+	return invalidToken, errors.New("couldn't handle this token: " + err.Error())
+}
+
+// GetUserInfo returns the user information.
+func (osvc *OIDCService) GetUserInfo(info map[string]interface{}) models.UserInfo {
+	return models.UserInfo{
+		ID:          info[osvc.client.Configuration.UserIDClaim].(string),
+		Name:        info[osvc.client.Configuration.UserNameClaim].(string),
+		AccessToken: info["access_token"].(string),
+	}
 }
 
 // getValueFromToken gets the nonce from the ID Token.
@@ -148,24 +195,17 @@ func (osvc *OIDCService) getValueFromToken(value string, t models.Tokens) (inter
 
 // validateIDToken validates the ID token.
 func (osvc *OIDCService) validateIDToken(ctx context.Context, oauth2Token *oauth2.Token) (oidc.IDToken, error) {
+	verifier := osvc.client.Provider.Verifier(&oidc.Config{ClientID: osvc.client.Configuration.ClientID})
+
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
 		return oidc.IDToken{}, errors.New("no id_token field in oauth2 token")
 	}
-	idToken, err := osvc.client.Verifier.Verify(ctx, rawIDToken)
+	idToken, err := verifier.Verify(ctx, rawIDToken)
 	if err != nil {
 		return oidc.IDToken{}, errors.New("failed to verify ID Token. Error: " + err.Error())
 	}
 	osvc.logger.Info("[✔️] Login validated with ID token")
 
 	return *idToken, nil
-}
-
-// randomByte creates a random byte value.
-func randomByte(nByte int) ([]byte, error) {
-	b := make([]byte, nByte)
-	if _, err := io.ReadFull(rand.Reader, b); err != nil {
-		return nil, err
-	}
-	return b, nil
 }

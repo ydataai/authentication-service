@@ -31,3 +31,17 @@ type CustomClaims struct {
 	// https://datatracker.ietf.org/doc/html/rfc7519#section-4.1
 	jwt.RegisteredClaims
 }
+
+// JSONResponse defines a JSON response struct.
+type JSONResponse struct {
+	AccessToken      string `json:"access_token,omitempty"`
+	Error            string `json:"error,omitempty"`
+	ErrorDescription string `json:"error_description,omitempty"`
+}
+
+// UserInfo defines a user info struct.
+type UserInfo struct {
+	ID          string `json:"user_id,omitempty"`
+	Name        string `json:"user_name,omitempty"`
+	AccessToken string `json:"access_token,omitempty"`
+}

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ydataai/authentication-service/internal/authentications"
 	"github.com/ydataai/authentication-service/internal/clients"
+	"github.com/ydataai/authentication-service/internal/configurations"
 	"github.com/ydataai/authentication-service/internal/controllers"
 	"github.com/ydataai/authentication-service/internal/services"
 	"github.com/ydataai/authentication-service/internal/storages"
@@ -21,14 +23,14 @@ var (
 func main() {
 	loggerConfiguration := logging.LoggerConfiguration{}
 	serverConfiguration := server.HTTPServerConfiguration{}
-	oidcConfiguration := clients.OIDCConfiguration{}
-	restConfiguration := controllers.RESTControllerConfiguration{}
-	sessionStorageConfiguration := storages.SessionStorageConfiguration{}
+	oidcClientConfiguration := configurations.OIDCConfiguration{}
+	restConfiguration := configurations.RESTControllerConfiguration{}
+	sessionStorageConfiguration := configurations.SessionStorageConfiguration{}
 
 	if err := config.InitConfigurationVariables([]config.ConfigurationVariables{
 		&loggerConfiguration,
 		&serverConfiguration,
-		&oidcConfiguration,
+		&oidcClientConfiguration,
 		&restConfiguration,
 		&sessionStorageConfiguration,
 	}); err != nil {
@@ -40,8 +42,7 @@ func main() {
 
 	logger.Info("Starting: Authentication Service")
 
-	oidcClient := clients.NewOIDCClient(logger, oidcConfiguration)
-
+	oidcClient := clients.NewOIDCClient(logger, oidcClientConfiguration)
 	// Start OIDC Provider setup.
 	oidcClient.StartSetup()
 
@@ -50,7 +51,19 @@ func main() {
 
 	oidcService := services.NewOIDCService(logger, oidcClient, sessionStorage)
 
-	restController := controllers.NewRESTController(logger, restConfiguration, oidcService)
+	// Gathering the Authenticators.
+	authenticationCookie := authentications.NewAuthenticationCookie(logger, oidcService, restConfiguration)
+	authenticationHeader := authentications.NewAuthenticationHeader(logger, oidcService, restConfiguration)
+
+	// Initializing the Authenticators.
+	authenticators := authentications.CredentialsHandler{
+		List: []authentications.Request{
+			authenticationCookie,
+			authenticationHeader,
+		},
+	}
+
+	restController := controllers.NewRESTController(logger, restConfiguration, oidcService, authenticators)
 
 	httpServer := server.NewServer(logger, serverConfiguration)
 	restController.Boot(httpServer)

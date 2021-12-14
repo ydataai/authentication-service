@@ -1,4 +1,4 @@
-package storages
+package configurations
 
 import (
 	"github.com/kelseyhightower/envconfig"

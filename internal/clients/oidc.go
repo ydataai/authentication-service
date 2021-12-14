@@ -4,21 +4,21 @@ import (
 	"context"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/ydataai/authentication-service/internal/configurations"
 	"github.com/ydataai/go-core/pkg/common/logging"
 	"golang.org/x/oauth2"
 )
 
 // OIDCClient defines a struct that can be used by the OIDC Service.
 type OIDCClient struct {
-	Configuration OIDCConfiguration
+	Configuration configurations.OIDCConfiguration
 	OAuth2Config  *oauth2.Config
-	Verifier      *oidc.IDTokenVerifier
 	Provider      *oidc.Provider
 	logger        logging.Logger
 }
 
 // NewOIDCClient defines a new values for the server.
-func NewOIDCClient(logger logging.Logger, config OIDCConfiguration) OIDCClient {
+func NewOIDCClient(logger logging.Logger, config configurations.OIDCConfiguration) OIDCClient {
 	return OIDCClient{
 		Configuration: config,
 		logger:        logger,
@@ -44,10 +44,4 @@ func (oc *OIDCClient) StartSetup() {
 		RedirectURL:  oc.Configuration.OIDCRedirectURL,
 		Scopes:       oc.Configuration.OIDCScopes,
 	}
-
-	oidcConfig := &oidc.Config{
-		ClientID: oc.Configuration.ClientID,
-	}
-
-	oc.Verifier = oc.Provider.Verifier(oidcConfig)
 }

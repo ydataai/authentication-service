@@ -1,4 +1,4 @@
-package clients
+package configurations
 
 import (
 	"time"
@@ -13,7 +13,10 @@ type OIDCConfiguration struct {
 	OIDProviderURL  string        `envconfig:"OIDC_PROVIDER_URL" required:"true"`
 	OIDCRedirectURL string        `envconfig:"OIDC_REDIRECT_URL" required:"true"`
 	OIDCScopes      []string      `envconfig:"OIDC_SCOPES" default:"openid,profile,email" split_words:"true"`
-	JWTExpires      time.Duration `envconfig:"JWT_EXPIRES_AT" default:"24h"`
+	UserIDClaim     string        `envconfig:"USER_ID_CLAIM" default:"email"`
+	UserNameClaim   string        `envconfig:"USER_NAME_CLAIM" default:"name"`
+	UserJWTExpires  time.Duration `envconfig:"USER_JWT_EXPIRES_AT" default:"24h"`
+	IDTokenHeader   string        `envconfig:"ID_TOKEN_HEADER" default:"Authorization"`
 }
 
 // LoadFromEnvVars from the OIDC.
