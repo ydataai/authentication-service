@@ -58,11 +58,9 @@ func main() {
 	authenticationHeader := authentications.NewAuthenticationHeader(logger, oidcService, restConfiguration)
 
 	// Initializing the authentications.
-	authentications := authentications.CredentialsHandler{
-		List: []authentications.Request{
-			authenticationCookie,
-			authenticationHeader,
-		},
+	authentications := []authentications.CredentialsHandler{
+		authenticationCookie,
+		authenticationHeader,
 	}
 
 	restController := controllers.NewRESTController(logger, restConfiguration, oidcService, authentications)

@@ -12,15 +12,15 @@ import (
 
 // AuthenticationHeader defines a authentication header struct.
 type AuthenticationHeader struct {
-	oidcService    *services.OIDCService
+	oidcService    services.OIDCService
 	restCtrlConfig configurations.RESTControllerConfiguration
 	logger         logging.Logger
 }
 
 // NewAuthenticationHeader defines a new AuthenticationHeader struct.
 func NewAuthenticationHeader(logger logging.Logger,
-	oidcService *services.OIDCService,
-	restCtrlConfig configurations.RESTControllerConfiguration) *AuthenticationHeader {
+	oidcService services.OIDCService,
+	restCtrlConfig configurations.RESTControllerConfiguration) CredentialsHandler {
 
 	return &AuthenticationHeader{
 		oidcService:    oidcService,
@@ -29,12 +29,19 @@ func NewAuthenticationHeader(logger logging.Logger,
 	}
 }
 
-// AuthenticationRequest is an interface that provides authentication from the header.
-func (ah *AuthenticationHeader) AuthenticationRequest(r *http.Request) (map[string]interface{}, error) {
+// Extract is an interface that provides authentication from the header.
+func (ah *AuthenticationHeader) Extract(r *http.Request) (map[string]interface{}, error) {
 	// Try to get session from header
 	token := getBearerToken(r.Header.Get(ah.restCtrlConfig.AuthHeader))
-	if token == "" && strings.Contains(r.Header.Get("Accept"), "text/html") {
-		return nil, errors.New(ah.restCtrlConfig.AuthHeader + " header not found")
+	if token == "" {
+		ah.logger.Infof("%s header not found", ah.restCtrlConfig.AuthHeader)
+
+		// currently, browsers use {Accept: text/html} header.
+		// by the way, if the request comes from a browser,
+		// it probably won't have an Authorization Header, so we should ignore it.
+		if strings.Contains(r.Header.Get("Accept"), "text/html") {
+			return nil, errors.New(ah.restCtrlConfig.AuthHeader + " header not found")
+		}
 	}
 
 	ah.logger.Infof("%s header found: %s", ah.restCtrlConfig.AuthHeader, token)

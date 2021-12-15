@@ -10,13 +10,13 @@ import (
 
 // AuthenticationCookie defines a authentication cookie struct.
 type AuthenticationCookie struct {
-	oidcService *services.OIDCService
+	oidcService services.OIDCService
 	logger      logging.Logger
 }
 
 // NewAuthenticationCookie defines a new AuthenticationCookie struct.
 func NewAuthenticationCookie(logger logging.Logger,
-	oidcService *services.OIDCService) *AuthenticationCookie {
+	oidcService services.OIDCService) CredentialsHandler {
 
 	return &AuthenticationCookie{
 		oidcService: oidcService,
@@ -24,8 +24,8 @@ func NewAuthenticationCookie(logger logging.Logger,
 	}
 }
 
-// AuthenticationRequest is an interface that provides authentication from the cookie.
-func (ac *AuthenticationCookie) AuthenticationRequest(r *http.Request) (map[string]interface{}, error) {
+// Extract is an interface that provides authentication from the cookie.
+func (ac *AuthenticationCookie) Extract(r *http.Request) (map[string]interface{}, error) {
 	// Try to get session from cookie
 	token, err := r.Cookie("access_token")
 	if err != nil || token.Value == "" {

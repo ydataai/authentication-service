@@ -30,8 +30,8 @@ type OIDCService struct {
 func NewOIDCService(logger logging.Logger,
 	configuration configurations.OIDCServiceConfiguration,
 	client clients.OIDCClient,
-	sessionStorage *storages.SessionStorage) *OIDCService {
-	return &OIDCService{
+	sessionStorage *storages.SessionStorage) OIDCService {
+	return OIDCService{
 		configuration:  configuration,
 		client:         client,
 		sessionStorage: sessionStorage,
@@ -158,8 +158,9 @@ func (osvc *OIDCService) ValidateJWT(tokenString string) (map[string]interface{}
 		claims["access_token"] = tokenString
 
 		return claims, nil
+	}
 
-	} else if ve, ok := err.(*jwt.ValidationError); ok {
+	if ve, ok := err.(*jwt.ValidationError); ok {
 		if ve.Errors&jwt.ValidationErrorMalformed != 0 {
 			return invalidToken, errors.New("that's not even a token: " + tokenString)
 

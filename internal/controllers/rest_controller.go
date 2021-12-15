@@ -18,8 +18,8 @@ import (
 // RESTController defines rest controller.
 type RESTController struct {
 	configuration   configurations.RESTControllerConfiguration
-	oidcService     *services.OIDCService
-	authentications authentications.CredentialsHandler
+	oidcService     services.OIDCService
+	authentications []authentications.CredentialsHandler
 	logger          logging.Logger
 }
 
@@ -27,8 +27,8 @@ type RESTController struct {
 func NewRESTController(
 	logger logging.Logger,
 	configuration configurations.RESTControllerConfiguration,
-	oidcService *services.OIDCService,
-	authentications authentications.CredentialsHandler,
+	oidcService services.OIDCService,
+	authentications []authentications.CredentialsHandler,
 ) RESTController {
 	return RESTController{
 		configuration:   configuration,
@@ -150,8 +150,8 @@ func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
 // authenticationWorkflow is responsible for running the authentication workflow.
 func (rc RESTController) authenticationWorkflow(r *http.Request) (map[string]interface{}, error) {
 	rc.logger.Info("Authenticating request...")
-	for i, auth := range rc.authentications.List {
-		claims, err := auth.AuthenticationRequest(r)
+	for i, auth := range rc.authentications {
+		claims, err := auth.Extract(r)
 		if err != nil {
 			if claims != nil {
 				return claims, err
