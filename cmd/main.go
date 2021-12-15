@@ -54,13 +54,13 @@ func main() {
 	oidcService := services.NewOIDCService(logger, oidcServiceConfiguration, oidcClient, sessionStorage)
 
 	// Gathering the authentications.
-	authenticationCookie := authentications.NewAuthenticationCookie(logger, oidcService)
-	authenticationHeader := authentications.NewAuthenticationHeader(logger, oidcService, restConfiguration)
+	cookieCredentials := authentications.NewCookieCredentialsHandler(logger)
+	headerCredentials := authentications.NewHeaderCredentialsHandler(logger, restConfiguration)
 
 	// Initializing the authentications.
 	authentications := []authentications.CredentialsHandler{
-		authenticationCookie,
-		authenticationHeader,
+		cookieCredentials,
+		headerCredentials,
 	}
 
 	restController := controllers.NewRESTController(logger, restConfiguration, oidcService, authentications)

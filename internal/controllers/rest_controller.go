@@ -50,17 +50,18 @@ func (rc RESTController) Boot(s *server.Server) {
 // If not logged in, begin OIDC Flow.
 func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Request) {
 	// workflow to identify if there is a token present.
-	claims, err := rc.authenticationWorkflow(r)
+	token, err := rc.authenticationWorkflow(r)
 	// if a token is not identified, the OIDC flow will be started.
-	if err == nil && claims == nil {
+	if err == nil && token == "" {
 		rc.RedirectToOIDCProvider(w, r)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 
+	claims, err := rc.oidcService.Decode(token)
 	// if a token was passed but it is not valid, display the error and stop the flow.
-	if err != nil && claims != nil {
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		jsonBody := models.JSONResponse{
 			Error:            http.StatusText(http.StatusBadRequest),
@@ -147,26 +148,27 @@ func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 // authenticationWorkflow is responsible for running the authentication workflow.
-func (rc RESTController) authenticationWorkflow(r *http.Request) (map[string]interface{}, error) {
+func (rc RESTController) authenticationWorkflow(r *http.Request) (string, error) {
 	rc.logger.Info("Authenticating request...")
 	for i, auth := range rc.authentications {
-		claims, err := auth.Extract(r)
+		token, err := auth.Extract(r)
 		if err != nil {
-			if claims != nil {
-				return claims, err
+			if token == "" {
+				rc.logger.Debugf("error authenticating request using authenticator %d: %v", i, err)
+				continue
 			}
-			rc.logger.Debugf("error authenticating request using authenticator %d: %v", i, err)
-			continue
+
+			return token, err
 		}
-		// there's no error but somehow the claim returned nil.
-		if claims == nil {
+		// there's no error but somehow the token returned empty.
+		if token == "" {
 			continue
 		}
 		// successful authentication.
-		return claims, nil
+		return token, nil
 	}
 	// back to start OIDC flow
-	return nil, nil
+	return "", nil
 }
 
 func (rc RESTController) userInfoToHeaders(info models.UserInfo) map[string]string {

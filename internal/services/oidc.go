@@ -40,8 +40,7 @@ func NewOIDCService(logger logging.Logger,
 }
 
 var (
-	hmacSecret   = []byte("YData") // For HMAC signing method, the key can be any []byte
-	invalidToken = map[string]interface{}{"access_token": "This is an invalid token"}
+	hmacSecret = []byte("YData") // For HMAC signing method, the key can be any []byte
 )
 
 // GetOIDCProviderURL gets OIDC provider URL from the OAuth2 configuration.
@@ -137,9 +136,9 @@ func (osvc *OIDCService) CreateJWT(cc *models.CustomClaims) (models.CustomClaims
 	return customClaims, err
 }
 
-// ValidateJWT validates the token and returns the claims.
+// Decode validates the token and returns the claims.
 // even if there is an error, return the invalid token instead of nil.
-func (osvc *OIDCService) ValidateJWT(tokenString string) (map[string]interface{}, error) {
+func (osvc *OIDCService) Decode(tokenString string) (map[string]interface{}, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// Don't forget to validate the alg is what you expect:
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -150,7 +149,7 @@ func (osvc *OIDCService) ValidateJWT(tokenString string) (map[string]interface{}
 	})
 
 	if token == nil {
-		return invalidToken, errors.New("an unexpected error occurred while validating the JWT token")
+		return nil, errors.New("an unexpected error occurred while validating the JWT token")
 	}
 
 	if token.Valid {
@@ -162,17 +161,17 @@ func (osvc *OIDCService) ValidateJWT(tokenString string) (map[string]interface{}
 
 	if ve, ok := err.(*jwt.ValidationError); ok {
 		if ve.Errors&jwt.ValidationErrorMalformed != 0 {
-			return invalidToken, errors.New("that's not even a token: " + tokenString)
+			return nil, errors.New("that's not even a token: " + tokenString)
 
 		} else if ve.Errors&(jwt.ValidationErrorExpired|jwt.ValidationErrorNotValidYet) != 0 {
-			return invalidToken, errors.New("token is either expired or not active yet " + tokenString)
+			return nil, errors.New("token is either expired or not active yet " + tokenString)
 
 		} else {
-			return invalidToken, errors.New("couldn't handle this token: " + err.Error())
+			return nil, errors.New("couldn't handle this token: " + err.Error())
 		}
 	}
 
-	return invalidToken, errors.New("couldn't handle this token: " + err.Error())
+	return nil, errors.New("couldn't handle this token: " + err.Error())
 }
 
 // GetUserInfo returns the user information.
