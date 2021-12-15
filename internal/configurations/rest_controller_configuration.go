@@ -1,7 +1,6 @@
 package configurations
 
 import (
-	"net/url"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -16,7 +15,6 @@ type RESTControllerConfiguration struct {
 	AuthHeader         string        `envconfig:"AUTH_HEADER" default:"Authorization"`
 	UserIDHeader       string        `envconfig:"USER_ID_HEADER" default:"userid"`
 	UserIDPrefix       string        `envconfig:"USER_ID_PREFIX" default:""`
-	AfterLoginURL      *url.URL      `envconfig:"AFTER_LOGIN_URL" default:"/"`
 	CookieMaxAge       int           `envconfig:"COOKIE_MAX_AGE" default:"86400"`
 }
 
