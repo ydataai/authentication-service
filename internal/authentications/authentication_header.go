@@ -35,13 +35,7 @@ func (ah *AuthenticationHeader) Extract(r *http.Request) (map[string]interface{}
 	token := getBearerToken(r.Header.Get(ah.restCtrlConfig.AuthHeader))
 	if token == "" {
 		ah.logger.Infof("%s header not found", ah.restCtrlConfig.AuthHeader)
-
-		// currently, browsers use {Accept: text/html} header.
-		// by the way, if the request comes from a browser,
-		// it probably won't have an Authorization Header, so we should ignore it.
-		if strings.Contains(r.Header.Get("Accept"), "text/html") {
-			return nil, errors.New(ah.restCtrlConfig.AuthHeader + " header not found")
-		}
+		return nil, errors.New(ah.restCtrlConfig.AuthHeader + " header not found")
 	}
 
 	ah.logger.Infof("%s header found: %s", ah.restCtrlConfig.AuthHeader, token)

@@ -53,7 +53,6 @@ func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Re
 	claims, err := rc.authenticationWorkflow(r)
 	// if a token is not identified, the OIDC flow will be started.
 	if err == nil && claims == nil {
-		rc.logger.Info(err)
 		rc.RedirectToOIDCProvider(w, r)
 		return
 	}
@@ -159,9 +158,14 @@ func (rc RESTController) authenticationWorkflow(r *http.Request) (map[string]int
 			rc.logger.Debugf("error authenticating request using authenticator %d: %v", i, err)
 			continue
 		}
-
+		// there's no error but somehow the claim returned nil.
+		if claims == nil {
+			continue
+		}
+		// successful authentication.
 		return claims, nil
 	}
+	// back to start OIDC flow
 	return nil, nil
 }
 
