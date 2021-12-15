@@ -36,7 +36,7 @@ func NewOIDCService(logger logging.Logger,
 }
 
 var (
-	HMACSecret   = []byte("YData") // For HMAC signing method, the key can be any []byte
+	hmacSecret   = []byte("YData") // For HMAC signing method, the key can be any []byte
 	invalidToken = map[string]interface{}{"access_token": "This is an invalid token"}
 )
 
@@ -129,7 +129,7 @@ func (osvc *OIDCService) CreateJWT(cc *models.CustomClaims) (models.CustomClaims
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, customClaims)
 
 	// Sign and get the complete encoded token as a string using the secret.
-	customClaims.AccessToken, err = token.SignedString(HMACSecret)
+	customClaims.AccessToken, err = token.SignedString(hmacSecret)
 
 	return customClaims, err
 }
@@ -143,7 +143,7 @@ func (osvc *OIDCService) ValidateJWT(tokenString string) (map[string]interface{}
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 
-		return HMACSecret, nil
+		return hmacSecret, nil
 	})
 
 	if token == nil {
