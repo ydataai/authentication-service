@@ -23,7 +23,8 @@ var (
 func main() {
 	loggerConfiguration := logging.LoggerConfiguration{}
 	serverConfiguration := server.HTTPServerConfiguration{}
-	oidcClientConfiguration := configurations.OIDCConfiguration{}
+	oidcClientConfiguration := configurations.OIDCClientConfiguration{}
+	oidcServiceConfiguration := configurations.OIDCServiceConfiguration{}
 	restConfiguration := configurations.RESTControllerConfiguration{}
 	sessionStorageConfiguration := configurations.SessionStorageConfiguration{}
 
@@ -49,7 +50,7 @@ func main() {
 	// Initializes a storage to save temporary sessions configured with TTL.
 	sessionStorage := storages.NewSessionStorage(sessionStorageConfiguration)
 
-	oidcService := services.NewOIDCService(logger, oidcClient, sessionStorage)
+	oidcService := services.NewOIDCService(logger, oidcServiceConfiguration, oidcClient, sessionStorage)
 
 	// Gathering the authentications.
 	authenticationCookie := authentications.NewAuthenticationCookie(logger, oidcService, restConfiguration)

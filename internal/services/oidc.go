@@ -12,6 +12,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/ydataai/authentication-service/internal/clients"
+	"github.com/ydataai/authentication-service/internal/configurations"
 	"github.com/ydataai/authentication-service/internal/models"
 	"github.com/ydataai/authentication-service/internal/storages"
 	"github.com/ydataai/go-core/pkg/common/logging"
@@ -19,6 +20,7 @@ import (
 
 // OIDCService defines the oidc server struct.
 type OIDCService struct {
+	configuration  configurations.OIDCServiceConfiguration
 	client         clients.OIDCClient
 	sessionStorage *storages.SessionStorage
 	logger         logging.Logger
@@ -26,9 +28,11 @@ type OIDCService struct {
 
 // NewOIDCService creates a new OIDC Service.
 func NewOIDCService(logger logging.Logger,
+	configuration configurations.OIDCServiceConfiguration,
 	client clients.OIDCClient,
 	sessionStorage *storages.SessionStorage) *OIDCService {
 	return &OIDCService{
+		configuration:  configuration,
 		client:         client,
 		sessionStorage: sessionStorage,
 		logger:         logger,
@@ -121,7 +125,7 @@ func (osvc *OIDCService) CreateJWT(cc *models.CustomClaims) (models.CustomClaims
 		Profile:  cc.Profile,
 		Audience: cc.Audience,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(osvc.client.Configuration.UserJWTExpires))),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(osvc.configuration.UserJWTExpires))),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
@@ -174,8 +178,8 @@ func (osvc *OIDCService) ValidateJWT(tokenString string) (map[string]interface{}
 // GetUserInfo returns the user information.
 func (osvc *OIDCService) GetUserInfo(info map[string]interface{}) models.UserInfo {
 	return models.UserInfo{
-		ID:          info[osvc.client.Configuration.UserIDClaim].(string),
-		Name:        info[osvc.client.Configuration.UserNameClaim].(string),
+		ID:          info[osvc.configuration.UserIDClaim].(string),
+		Name:        info[osvc.configuration.UserNameClaim].(string),
 		AccessToken: info["access_token"].(string),
 	}
 }
@@ -195,13 +199,11 @@ func (osvc *OIDCService) getValueFromToken(value string, t models.Tokens) (inter
 
 // validateIDToken validates the ID token.
 func (osvc *OIDCService) validateIDToken(ctx context.Context, oauth2Token *oauth2.Token) (oidc.IDToken, error) {
-	verifier := osvc.client.Provider.Verifier(&oidc.Config{ClientID: osvc.client.Configuration.ClientID})
-
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
 		return oidc.IDToken{}, errors.New("no id_token field in oauth2 token")
 	}
-	idToken, err := verifier.Verify(ctx, rawIDToken)
+	idToken, err := osvc.client.Verifier.Verify(ctx, rawIDToken)
 	if err != nil {
 		return oidc.IDToken{}, errors.New("failed to verify ID Token. Error: " + err.Error())
 	}
