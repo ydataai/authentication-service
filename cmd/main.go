@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ydataai/authentication-service/internal/authentications"
 	"github.com/ydataai/authentication-service/internal/clients"
 	"github.com/ydataai/authentication-service/internal/configurations"
 	"github.com/ydataai/authentication-service/internal/controllers"
+	"github.com/ydataai/authentication-service/internal/handlers"
 	"github.com/ydataai/authentication-service/internal/services"
 	"github.com/ydataai/authentication-service/internal/storages"
 	"github.com/ydataai/go-core/pkg/common/config"
@@ -53,17 +53,15 @@ func main() {
 
 	oidcService := services.NewOIDCService(logger, oidcServiceConfiguration, oidcClient, sessionStorage)
 
-	// Gathering the authentications.
-	cookieCredentials := authentications.NewCookieCredentialsHandler(logger)
-	headerCredentials := authentications.NewHeaderCredentialsHandler(logger, restConfiguration)
-
-	// Initializing the authentications.
-	authentications := []authentications.CredentialsHandler{
+	// Gathering the Credentials Handler.
+	cookieCredentials := handlers.NewCookieCredentialsHandler(logger)
+	headerCredentials := handlers.NewHeaderCredentialsHandler(logger, restConfiguration)
+	credentials := []handlers.CredentialsHandler{
 		cookieCredentials,
 		headerCredentials,
 	}
 
-	restController := controllers.NewRESTController(logger, restConfiguration, oidcService, authentications)
+	restController := controllers.NewRESTController(logger, restConfiguration, oidcService, credentials)
 
 	httpServer := server.NewServer(logger, serverConfiguration)
 	restController.Boot(httpServer)

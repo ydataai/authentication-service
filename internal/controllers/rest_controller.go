@@ -7,8 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/ydataai/authentication-service/internal/authentications"
 	"github.com/ydataai/authentication-service/internal/configurations"
+	"github.com/ydataai/authentication-service/internal/handlers"
 	"github.com/ydataai/authentication-service/internal/models"
 	"github.com/ydataai/authentication-service/internal/services"
 	"github.com/ydataai/go-core/pkg/common/logging"
@@ -17,10 +17,10 @@ import (
 
 // RESTController defines rest controller.
 type RESTController struct {
-	configuration   configurations.RESTControllerConfiguration
-	oidcService     services.OIDCService
-	authentications []authentications.CredentialsHandler
-	logger          logging.Logger
+	configuration configurations.RESTControllerConfiguration
+	oidcService   services.OIDCService
+	credentials   []handlers.CredentialsHandler
+	logger        logging.Logger
 }
 
 // NewRESTController initializes rest controller.
@@ -28,13 +28,13 @@ func NewRESTController(
 	logger logging.Logger,
 	configuration configurations.RESTControllerConfiguration,
 	oidcService services.OIDCService,
-	authentications []authentications.CredentialsHandler,
+	credentials []handlers.CredentialsHandler,
 ) RESTController {
 	return RESTController{
-		configuration:   configuration,
-		oidcService:     oidcService,
-		authentications: authentications,
-		logger:          logger,
+		configuration: configuration,
+		oidcService:   oidcService,
+		credentials:   credentials,
+		logger:        logger,
 	}
 }
 
@@ -45,12 +45,12 @@ func (rc RESTController) Boot(s *server.Server) {
 	s.Router.GET(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
 }
 
-// AuthenticationSession is responsible for knowing if the user is already authenticated or not.
+// AuthenticationSession is responsible for knowing if the user already has a valid credential or not.
 // If so, forward 200 OK + UserID Headers.
-// If not logged in, begin OIDC Flow.
+// If not, begin OIDC Flow.
 func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Request) {
 	// workflow to identify if there is a token present.
-	token, err := rc.authenticationWorkflow(r)
+	token, err := rc.getCredentials(r)
 	// if a token is not identified, the OIDC flow will be started.
 	if err == nil && token == "" {
 		rc.RedirectToOIDCProvider(w, r)
@@ -62,6 +62,7 @@ func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Re
 	claims, err := rc.oidcService.Decode(token)
 	// if a token was passed but it is not valid, display the error and stop the flow.
 	if err != nil {
+		rc.logger.Errorf("an error occurred while decoding token: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		jsonBody := models.JSONResponse{
 			Error:            http.StatusText(http.StatusBadRequest),
@@ -75,7 +76,7 @@ func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Re
 	userInfo := rc.oidcService.GetUserInfo(claims)
 	rc.logger.Infof("Authorizing request for UserID: %v", userInfo.ID)
 
-	for k, v := range rc.userInfoToHeaders(userInfo) {
+	for k, v := range rc.userInfoHeaders(userInfo) {
 		w.Header().Set(k, v)
 	}
 
@@ -111,7 +112,7 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	codeProvider := r.URL.Query().Get("code")
 
 	// Creates an OAuth2 token with the auth code returned from the OIDC Provider.
-	token, err := rc.oidcService.ClaimsToken(ctx, codeProvider)
+	token, err := rc.oidcService.Claims(ctx, codeProvider)
 	if err != nil {
 		rc.logger.Error(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -128,7 +129,7 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	}
 
 	// If the flow is secure, a JWT will be created...
-	jwt, err := rc.oidcService.CreateJWT(&token.CustomClaims)
+	jwt, err := rc.oidcService.Create(&token.CustomClaims)
 	if err != nil {
 		rc.logger.Error("an error occurred while creating a JWT. Error: " + err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -147,31 +148,32 @@ func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
 	rc.deleteCookie(w, "access_token")
 }
 
-// authenticationWorkflow is responsible for running the authentication workflow.
-func (rc RESTController) authenticationWorkflow(r *http.Request) (string, error) {
-	rc.logger.Info("Authenticating request...")
-	for i, auth := range rc.authentications {
+// getCredentials is responsible for simply getting credentials.
+func (rc RESTController) getCredentials(r *http.Request) (string, error) {
+	rc.logger.Info("Get request credentials...")
+	for i, auth := range rc.credentials {
 		token, err := auth.Extract(r)
 		if err != nil {
 			if token == "" {
-				rc.logger.Debugf("error authenticating request using authenticator %d: %v", i, err)
+				rc.logger.Debugf("[%d] credential error: %v", i, err)
 				continue
 			}
-
+			// if there's an error AND a token has been sent, we must send it to upstream
+			// generate an error response.
 			return token, err
 		}
 		// there's no error but somehow the token returned empty.
 		if token == "" {
 			continue
 		}
-		// successful authentication.
+		// credentials sent.
 		return token, nil
 	}
-	// back to start OIDC flow
+	// back to start OIDC flow.
 	return "", nil
 }
 
-func (rc RESTController) userInfoToHeaders(info models.UserInfo) map[string]string {
+func (rc RESTController) userInfoHeaders(info models.UserInfo) map[string]string {
 	return map[string]string{
 		rc.configuration.UserIDHeader: rc.configuration.UserIDPrefix + info.ID,
 	}

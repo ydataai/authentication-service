@@ -1,4 +1,4 @@
-package authentications
+package handlers
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 	"github.com/ydataai/go-core/pkg/common/logging"
 )
 
-// HeaderCredentialsHandler defines a authentication header struct.
+// HeaderCredentialsHandler defines a HeaderCredentialsHandler struct.
 type HeaderCredentialsHandler struct {
 	restCtrlConfig configurations.RESTControllerConfiguration
 	logger         logging.Logger
@@ -25,7 +25,7 @@ func NewHeaderCredentialsHandler(logger logging.Logger,
 	}
 }
 
-// Extract is an interface that provides authentication from the header.
+// Extract is an interface that extracts credential information from the header.
 func (ah *HeaderCredentialsHandler) Extract(r *http.Request) (string, error) {
 	// Try to get session from header
 	token := getBearerToken(r.Header.Get(ah.restCtrlConfig.AuthHeader))

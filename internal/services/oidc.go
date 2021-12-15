@@ -60,8 +60,8 @@ func (osvc *OIDCService) GetOIDCProviderURL() (string, error) {
 	), nil
 }
 
-// ClaimsToken creates claims token.
-func (osvc *OIDCService) ClaimsToken(ctx context.Context, code string) (models.Tokens, error) {
+// Claims creates claims tokens based on the auth code returned from the OIDC provider.
+func (osvc *OIDCService) Claims(ctx context.Context, code string) (models.Tokens, error) {
 	if code == "" {
 		return models.Tokens{}, errors.New("unable to authenticate without code returned from OIDC Provider")
 	}
@@ -114,8 +114,8 @@ func (osvc *OIDCService) IsFlowSecure(state string, token models.Tokens) (bool, 
 	return true, nil
 }
 
-// CreateJWT creates a new JWT token and Custom Claims.
-func (osvc *OIDCService) CreateJWT(cc *models.CustomClaims) (models.CustomClaims, error) {
+// Create a new JWT token based on Custom Claims models.
+func (osvc *OIDCService) Create(cc *models.CustomClaims) (models.CustomClaims, error) {
 	var err error
 
 	customClaims := models.CustomClaims{
@@ -137,7 +137,6 @@ func (osvc *OIDCService) CreateJWT(cc *models.CustomClaims) (models.CustomClaims
 }
 
 // Decode validates the token and returns the claims.
-// even if there is an error, return the invalid token instead of nil.
 func (osvc *OIDCService) Decode(tokenString string) (map[string]interface{}, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// Don't forget to validate the alg is what you expect:

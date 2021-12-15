@@ -1,4 +1,4 @@
-package authentications
+package handlers
 
 import (
 	"errors"
@@ -7,7 +7,7 @@ import (
 	"github.com/ydataai/go-core/pkg/common/logging"
 )
 
-// CookieCredentialsHandler defines a authentication cookie struct.
+// CookieCredentialsHandler defines a CookieCredentialsHandler struct.
 type CookieCredentialsHandler struct {
 	logger logging.Logger
 }
@@ -19,9 +19,8 @@ func NewCookieCredentialsHandler(logger logging.Logger) CredentialsHandler {
 	}
 }
 
-// Extract is an interface that provides authentication from the cookie.
+// Extract is an interface that extracts credential information from the cookie.
 func (ac *CookieCredentialsHandler) Extract(r *http.Request) (string, error) {
-	// Try to get session from cookie
 	token, err := r.Cookie("access_token")
 	if err != nil || token.Value == "" {
 		return "", errors.New("'access_token' cookie not found")
