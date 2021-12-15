@@ -6,5 +6,5 @@ import (
 
 // CredentialsHandler defines an interface for authentications.
 type CredentialsHandler interface {
-	Extract(r *http.Request) (map[string]interface{}, error)
+	Extract(r *http.Request) (string, error)
 }

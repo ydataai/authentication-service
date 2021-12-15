@@ -6,48 +6,36 @@ import (
 	"strings"
 
 	"github.com/ydataai/authentication-service/internal/configurations"
-	"github.com/ydataai/authentication-service/internal/services"
 	"github.com/ydataai/go-core/pkg/common/logging"
 )
 
-// AuthenticationHeader defines a authentication header struct.
-type AuthenticationHeader struct {
-	oidcService    services.OIDCService
+// HeaderCredentialsHandler defines a authentication header struct.
+type HeaderCredentialsHandler struct {
 	restCtrlConfig configurations.RESTControllerConfiguration
 	logger         logging.Logger
 }
 
-// NewAuthenticationHeader defines a new AuthenticationHeader struct.
-func NewAuthenticationHeader(logger logging.Logger,
-	oidcService services.OIDCService,
+// NewHeaderCredentialsHandler defines a new HeaderCredentialsHandler struct.
+func NewHeaderCredentialsHandler(logger logging.Logger,
 	restCtrlConfig configurations.RESTControllerConfiguration) CredentialsHandler {
 
-	return &AuthenticationHeader{
-		oidcService:    oidcService,
+	return &HeaderCredentialsHandler{
 		restCtrlConfig: restCtrlConfig,
 		logger:         logger,
 	}
 }
 
 // Extract is an interface that provides authentication from the header.
-func (ah *AuthenticationHeader) Extract(r *http.Request) (map[string]interface{}, error) {
+func (ah *HeaderCredentialsHandler) Extract(r *http.Request) (string, error) {
 	// Try to get session from header
 	token := getBearerToken(r.Header.Get(ah.restCtrlConfig.AuthHeader))
 	if token == "" {
 		ah.logger.Infof("%s header not found", ah.restCtrlConfig.AuthHeader)
-		return nil, errors.New(ah.restCtrlConfig.AuthHeader + " header not found")
+		return "", errors.New(ah.restCtrlConfig.AuthHeader + " header not found")
 	}
 
 	ah.logger.Infof("%s header found: %s", ah.restCtrlConfig.AuthHeader, token)
-
-	// if we have a token, we'll validate it.
-	claims, err := ah.oidcService.ValidateJWT(token)
-	if err != nil {
-		ah.logger.Warnf(err.Error())
-		return claims, err
-	}
-
-	return claims, nil
+	return token, nil
 }
 
 func getBearerToken(value string) string {
