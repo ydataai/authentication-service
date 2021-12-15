@@ -6,6 +6,7 @@ import (
 
 // SessionStorageConfiguration defines a struct with required environment variables for the session.
 type SessionStorageConfiguration struct {
+	// TODO: including TTL for session storage
 	MaxTTL int `envconfig:"SESSION_MAX_TLL" default:"600"`
 }
 

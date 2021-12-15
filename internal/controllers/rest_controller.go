@@ -40,15 +40,15 @@ func NewRESTController(
 
 // Boot initialize creating some routes.
 func (rc RESTController) Boot(s *server.Server) {
-	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.AuthenticateSession))
+	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.AuthenticationSession))
 	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.OIDCProviderCallback))
 	s.Router.GET(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
 }
 
-// AuthenticateSession is responsible for knowing if the user is already authenticated or not.
+// AuthenticationSession is responsible for knowing if the user is already authenticated or not.
 // If so, forward 200 OK + UserID Headers.
 // If not logged in, begin OIDC Flow.
-func (rc RESTController) AuthenticateSession(w http.ResponseWriter, r *http.Request) {
+func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Request) {
 	// workflow to identify if there is a token present.
 	claims, err := rc.authenticationWorkflow(r)
 	// if a token is not identified, the OIDC flow will be started.
@@ -149,7 +149,6 @@ func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
 
 // authenticationWorkflow is responsible for running the authentication workflow.
 func (rc RESTController) authenticationWorkflow(r *http.Request) (map[string]interface{}, error) {
-
 	rc.logger.Info("Authenticating request...")
 	for i, auth := range rc.authentications.List {
 		claims, err := auth.AuthenticationRequest(r)

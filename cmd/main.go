@@ -32,6 +32,7 @@ func main() {
 		&loggerConfiguration,
 		&serverConfiguration,
 		&oidcClientConfiguration,
+		&oidcServiceConfiguration,
 		&restConfiguration,
 		&sessionStorageConfiguration,
 	}); err != nil {
@@ -53,7 +54,7 @@ func main() {
 	oidcService := services.NewOIDCService(logger, oidcServiceConfiguration, oidcClient, sessionStorage)
 
 	// Gathering the authentications.
-	authenticationCookie := authentications.NewAuthenticationCookie(logger, oidcService, restConfiguration)
+	authenticationCookie := authentications.NewAuthenticationCookie(logger, oidcService)
 	authenticationHeader := authentications.NewAuthenticationHeader(logger, oidcService, restConfiguration)
 
 	// Initializing the authentications.

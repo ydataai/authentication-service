@@ -4,27 +4,23 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/ydataai/authentication-service/internal/configurations"
 	"github.com/ydataai/authentication-service/internal/services"
 	"github.com/ydataai/go-core/pkg/common/logging"
 )
 
 // AuthenticationCookie defines a authentication cookie struct.
 type AuthenticationCookie struct {
-	oidcService    *services.OIDCService
-	restCtrlConfig configurations.RESTControllerConfiguration
-	logger         logging.Logger
+	oidcService *services.OIDCService
+	logger      logging.Logger
 }
 
 // NewAuthenticationCookie defines a new AuthenticationCookie struct.
 func NewAuthenticationCookie(logger logging.Logger,
-	oidcService *services.OIDCService,
-	restCtrlConfig configurations.RESTControllerConfiguration) *AuthenticationCookie {
+	oidcService *services.OIDCService) *AuthenticationCookie {
 
 	return &AuthenticationCookie{
-		oidcService:    oidcService,
-		restCtrlConfig: restCtrlConfig,
-		logger:         logger,
+		oidcService: oidcService,
+		logger:      logger,
 	}
 }
 

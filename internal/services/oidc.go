@@ -120,10 +120,9 @@ func (osvc *OIDCService) CreateJWT(cc *models.CustomClaims) (models.CustomClaims
 	var err error
 
 	customClaims := models.CustomClaims{
-		Name:     cc.Name,
-		Email:    cc.Email,
-		Profile:  cc.Profile,
-		Audience: cc.Audience,
+		Name:    cc.Name,
+		Email:   cc.Email,
+		Profile: cc.Profile,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(osvc.configuration.UserJWTExpires))),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
