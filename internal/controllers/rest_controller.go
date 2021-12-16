@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -64,7 +65,8 @@ func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Re
 		rc.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		jsonBody := models.ErrorResponse{
-			Message: err.Error(),
+			Message:   err.Error(),
+			Timestamp: time.Now(),
 		}
 		json.NewEncoder(w).Encode(jsonBody)
 		return
@@ -78,21 +80,23 @@ func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Re
 		rc.logger.Errorf("an error occurred while decoding token: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		jsonBody := models.ErrorResponse{
-			Message: err.Error(),
+			Message:   err.Error(),
+			Timestamp: time.Now(),
 		}
 		json.NewEncoder(w).Encode(jsonBody)
 		return
 	}
 
-	// we've a valid token, let's get the UserInfo to write in the header.
-	userInfo := rc.oidcService.GetUserInfo(claims)
-	rc.logger.Infof("Authorizing request for UserID: %v", userInfo.ID)
+	// we've a valid token, let's get the TokenInfo to write in the header.
+	tokenInfo := rc.oidcService.GetTokenInfo(claims)
+	rc.logger.Infof("Authorizing request for UserID: %v", tokenInfo.UID)
 
-	rc.setUserInfoHeaders(w, userInfo)
+	rc.setUserInfoHeaders(w, tokenInfo)
 
 	w.WriteHeader(http.StatusOK)
 	jsonBody := models.SuccessResponse{
 		AccessToken: token,
+		ExpiresAt:   tokenInfo.ExpiresAt,
 	}
 	json.NewEncoder(w).Encode(jsonBody)
 }
@@ -177,9 +181,9 @@ func (rc RESTController) getCredentials(r *http.Request) (string, error) {
 	return "", authErrors.ErrNotFound
 }
 
-func (rc RESTController) setUserInfoHeaders(w http.ResponseWriter, info models.UserInfo) {
+func (rc RESTController) setUserInfoHeaders(w http.ResponseWriter, info models.TokenInfo) {
 	headers := map[string]string{
-		rc.configuration.UserIDHeader: rc.configuration.UserIDPrefix + info.ID,
+		rc.configuration.UserIDHeader: rc.configuration.UserIDPrefix + info.UID,
 	}
 
 	for k, v := range headers {

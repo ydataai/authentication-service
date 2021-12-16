@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/oauth2"
@@ -32,8 +33,9 @@ type CustomClaims struct {
 	jwt.RegisteredClaims
 }
 
-// UserInfo defines a user info struct.
-type UserInfo struct {
-	ID   string `json:"user_id,omitempty"`
-	Name string `json:"user_name,omitempty"`
+// TokenInfo defines a TokenInfo struct.
+type TokenInfo struct {
+	UID       string    `json:"userid,omitempty"`
+	Name      string    `json:"name,omitempty"`
+	ExpiresAt time.Time `json:"expires_at,omitempty"`
 }

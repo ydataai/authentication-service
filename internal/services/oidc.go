@@ -157,10 +157,10 @@ func (osvc *OIDCService) Decode(tokenString string) (map[string]interface{}, err
 
 	if ve, ok := err.(*jwt.ValidationError); ok {
 		if ve.Errors&jwt.ValidationErrorMalformed != 0 {
-			return nil, errors.New("that's not even a token: " + tokenString)
+			return nil, errors.New("that's not even a token")
 
 		} else if ve.Errors&(jwt.ValidationErrorExpired|jwt.ValidationErrorNotValidYet) != 0 {
-			return nil, errors.New("token is either expired or not active yet " + tokenString)
+			return nil, errors.New("token is either expired or not active yet")
 
 		} else {
 			return nil, errors.New("couldn't handle this token: " + err.Error())
@@ -170,11 +170,12 @@ func (osvc *OIDCService) Decode(tokenString string) (map[string]interface{}, err
 	return nil, errors.New("couldn't handle this token: " + err.Error())
 }
 
-// GetUserInfo returns the user information.
-func (osvc *OIDCService) GetUserInfo(info map[string]interface{}) models.UserInfo {
-	return models.UserInfo{
-		ID:   info[osvc.configuration.UserIDClaim].(string),
-		Name: info[osvc.configuration.UserNameClaim].(string),
+// GetTokenInfo returns the token information.
+func (osvc *OIDCService) GetTokenInfo(info map[string]interface{}) models.TokenInfo {
+	return models.TokenInfo{
+		UID:       info[osvc.configuration.UserIDClaim].(string),
+		Name:      info[osvc.configuration.UserNameClaim].(string),
+		ExpiresAt: time.Unix(int64(info["exp"].(float64)), 0),
 	}
 }
 
