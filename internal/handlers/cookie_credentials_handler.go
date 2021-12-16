@@ -22,7 +22,7 @@ func NewCookieCredentialsHandler(logger logging.Logger) CredentialsHandler {
 // Extract is an interface that extracts credential information from the cookie.
 func (ac *CookieCredentialsHandler) Extract(r *http.Request) (string, error) {
 	token, err := r.Cookie("access_token")
-	if err != nil || token.Value == "" {
+	if err != nil {
 		ac.logger.Debugf("%s cookie", notFoundMsg)
 		return "", authErrors.ErrNotFound
 	}

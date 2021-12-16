@@ -2,7 +2,8 @@ package errors
 
 import "errors"
 
-var ErrNotFound = errors.New("token not found")
+// ErrNotFound creates a new NotFound error.
+var ErrNotFound = errors.New("not found")
 
 // IsNotFound returns true if the specified error is an ErrNotFound.
 func IsNotFound(err error) bool {

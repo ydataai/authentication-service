@@ -27,21 +27,23 @@ func NewHeaderCredentialsHandler(logger logging.Logger,
 
 // Extract is an interface that extracts credential information from the header.
 func (ah *HeaderCredentialsHandler) Extract(r *http.Request) (string, error) {
-	// Try to get session from header
-	token := getBearerToken(r.Header.Get(ah.restCtrlConfig.AuthHeader))
-	if token == "" {
+	token, err := getBearerToken(r.Header.Get(ah.restCtrlConfig.AuthHeader))
+	if err != nil {
 		ah.logger.Debugf("%s %s header", notFoundMsg, ah.restCtrlConfig.AuthHeader)
-		return "", authErrors.ErrNotFound
+		return "", err
 	}
 
 	ah.logger.Infof("%s %s header", foundMsg, ah.restCtrlConfig.AuthHeader)
 	return token, nil
 }
 
-func getBearerToken(value string) string {
+func getBearerToken(value string) (string, error) {
 	value = strings.TrimSpace(value)
-	if strings.HasPrefix(value, "Bearer ") {
-		return strings.TrimPrefix(value, "Bearer ")
+	if value == "" {
+		return "", authErrors.ErrNotFound
 	}
-	return value
+	if strings.HasPrefix(value, "Bearer ") {
+		return strings.TrimPrefix(value, "Bearer "), nil
+	}
+	return value, nil
 }
