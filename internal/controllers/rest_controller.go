@@ -75,6 +75,13 @@ func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Re
 	w.Header().Set("Content-Type", "application/json")
 
 	claims, err := rc.oidcService.Decode(token)
+	// check if the token is expired.
+	// if so, the OIDC flow will be started to recreate a token.
+	if authErrors.IsTokenExpired(err) {
+		rc.logger.Warn(err)
+		rc.RedirectToOIDCProvider(w, r)
+		return
+	}
 	// if a token was passed but it is not valid, display the error and stop the flow.
 	if err != nil {
 		rc.logger.Errorf("an error occurred while decoding token: %v", err)
@@ -159,7 +166,7 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 // Logout is responsible for revoking a token and deleting an authentication cookie.
 func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
 	// TODO: revoke token
-	rc.deleteCookie(w, "access_token")
+	rc.deleteSessionCookie(w, "access_token")
 }
 
 // getCredentials is responsible for simply getting credentials.
@@ -203,6 +210,6 @@ func (rc RESTController) setSessionCookie(w http.ResponseWriter, r *http.Request
 	http.SetCookie(w, c)
 }
 
-func (rc RESTController) deleteCookie(w http.ResponseWriter, name string) {
+func (rc RESTController) deleteSessionCookie(w http.ResponseWriter, name string) {
 	http.SetCookie(w, &http.Cookie{Name: name, MaxAge: -1, Path: rc.configuration.AuthServiceURL})
 }

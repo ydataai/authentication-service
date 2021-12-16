@@ -13,6 +13,7 @@ import (
 
 	"github.com/ydataai/authentication-service/internal/clients"
 	"github.com/ydataai/authentication-service/internal/configurations"
+	authErrors "github.com/ydataai/authentication-service/internal/errors"
 	"github.com/ydataai/authentication-service/internal/models"
 	"github.com/ydataai/authentication-service/internal/storages"
 	"github.com/ydataai/go-core/pkg/common/logging"
@@ -159,9 +160,10 @@ func (osvc *OIDCService) Decode(tokenString string) (map[string]interface{}, err
 		if ve.Errors&jwt.ValidationErrorMalformed != 0 {
 			return nil, errors.New("that's not even a token")
 
-		} else if ve.Errors&(jwt.ValidationErrorExpired|jwt.ValidationErrorNotValidYet) != 0 {
-			return nil, errors.New("token is either expired or not active yet")
-
+		} else if ve.Errors&jwt.ValidationErrorExpired != 0 {
+			return nil, authErrors.ErrTokenExpired
+		} else if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
+			return nil, authErrors.ErrTokenInactiveYet
 		} else {
 			return nil, errors.New("couldn't handle this token: " + err.Error())
 		}

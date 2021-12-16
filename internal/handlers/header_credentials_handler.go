@@ -39,11 +39,11 @@ func (ah *HeaderCredentialsHandler) Extract(r *http.Request) (string, error) {
 
 func getBearerToken(value string) (string, error) {
 	value = strings.TrimSpace(value)
-	if value == "" {
-		return "", authErrors.ErrNotFound
-	}
 	if strings.HasPrefix(value, "Bearer ") {
 		return strings.TrimPrefix(value, "Bearer "), nil
+	}
+	if value == "" {
+		return "", authErrors.ErrNotFound
 	}
 	return value, nil
 }
