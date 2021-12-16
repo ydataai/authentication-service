@@ -23,9 +23,10 @@ func NewCookieCredentialsHandler(logger logging.Logger) CredentialsHandler {
 func (ac *CookieCredentialsHandler) Extract(r *http.Request) (string, error) {
 	token, err := r.Cookie("access_token")
 	if err != nil || token.Value == "" {
-		return "", errors.New("'access_token' cookie not found")
+		return "", errors.New(notFound + "cookie")
 	}
 
-	ac.logger.Infof("'access_token' cookie found: %s", token.Value)
+	ac.logger.Infof(found + "cookie")
+	ac.logger.Debug(token.Value)
 	return token.Value, nil
 }

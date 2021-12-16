@@ -30,11 +30,11 @@ func (ah *HeaderCredentialsHandler) Extract(r *http.Request) (string, error) {
 	// Try to get session from header
 	token := getBearerToken(r.Header.Get(ah.restCtrlConfig.AuthHeader))
 	if token == "" {
-		ah.logger.Infof("%s header not found", ah.restCtrlConfig.AuthHeader)
-		return "", errors.New(ah.restCtrlConfig.AuthHeader + " header not found")
+		return "", errors.New(notFound + ah.restCtrlConfig.AuthHeader + " header")
 	}
 
-	ah.logger.Infof("%s header found: %s", ah.restCtrlConfig.AuthHeader, token)
+	ah.logger.Infof(found + ah.restCtrlConfig.AuthHeader + " header")
+	ah.logger.Debug(token)
 	return token, nil
 }
 

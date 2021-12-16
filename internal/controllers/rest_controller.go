@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -52,7 +53,8 @@ func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Re
 	// workflow to identify if there is a token present.
 	token, err := rc.getCredentials(r)
 	// if a token is not identified, the OIDC flow will be started.
-	if err == nil && token == "" {
+	if err != nil && token == "" {
+		rc.logger.Error(err)
 		rc.RedirectToOIDCProvider(w, r)
 		return
 	}
@@ -64,7 +66,7 @@ func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		rc.logger.Errorf("an error occurred while decoding token: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
-		jsonBody := models.JSONResponse{
+		jsonBody := models.ErrorResponse{
 			Error:            http.StatusText(http.StatusBadRequest),
 			ErrorDescription: err.Error(),
 		}
@@ -76,12 +78,10 @@ func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Re
 	userInfo := rc.oidcService.GetUserInfo(claims)
 	rc.logger.Infof("Authorizing request for UserID: %v", userInfo.ID)
 
-	for k, v := range rc.userInfoHeaders(userInfo) {
-		w.Header().Set(k, v)
-	}
+	rc.setUserInfoHeaders(w, userInfo)
 
 	w.WriteHeader(http.StatusOK)
-	jsonBody := models.JSONResponse{
+	jsonBody := models.SuccessResponse{
 		AccessToken: userInfo.AccessToken,
 	}
 	json.NewEncoder(w).Encode(jsonBody)
@@ -170,12 +170,16 @@ func (rc RESTController) getCredentials(r *http.Request) (string, error) {
 		return token, nil
 	}
 	// back to start OIDC flow.
-	return "", nil
+	return "", errors.New("no credentials were found")
 }
 
-func (rc RESTController) userInfoHeaders(info models.UserInfo) map[string]string {
-	return map[string]string{
+func (rc RESTController) setUserInfoHeaders(w http.ResponseWriter, info models.UserInfo) {
+	headers := map[string]string{
 		rc.configuration.UserIDHeader: rc.configuration.UserIDPrefix + info.ID,
+	}
+
+	for k, v := range headers {
+		w.Header().Set(k, v)
 	}
 }
 
