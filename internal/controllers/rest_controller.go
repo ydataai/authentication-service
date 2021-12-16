@@ -3,12 +3,12 @@ package controllers
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/ydataai/authentication-service/internal/configurations"
+	authErrors "github.com/ydataai/authentication-service/internal/errors"
 	"github.com/ydataai/authentication-service/internal/handlers"
 	"github.com/ydataai/authentication-service/internal/models"
 	"github.com/ydataai/authentication-service/internal/services"
@@ -52,10 +52,21 @@ func (rc RESTController) Boot(s *server.Server) {
 func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Request) {
 	// workflow to identify if there is a token present.
 	token, err := rc.getCredentials(r)
-	// if a token is not identified, the OIDC flow will be started.
-	if err != nil && token == "" {
-		rc.logger.Error(err)
+	// if a token is not found, the OIDC flow will be started.
+	if authErrors.IsNotFound(err) {
+		rc.logger.Warn(err)
 		rc.RedirectToOIDCProvider(w, r)
+		return
+	}
+
+	// if an unexpected error occurs
+	if err != nil {
+		rc.logger.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		jsonBody := models.ErrorResponse{
+			Message: err.Error(),
+		}
+		json.NewEncoder(w).Encode(jsonBody)
 		return
 	}
 
@@ -67,8 +78,7 @@ func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Re
 		rc.logger.Errorf("an error occurred while decoding token: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		jsonBody := models.ErrorResponse{
-			Error:            http.StatusText(http.StatusBadRequest),
-			ErrorDescription: err.Error(),
+			Message: err.Error(),
 		}
 		json.NewEncoder(w).Encode(jsonBody)
 		return
@@ -82,7 +92,7 @@ func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Re
 
 	w.WriteHeader(http.StatusOK)
 	jsonBody := models.SuccessResponse{
-		AccessToken: userInfo.AccessToken,
+		AccessToken: token,
 	}
 	json.NewEncoder(w).Encode(jsonBody)
 }
@@ -151,26 +161,20 @@ func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
 // getCredentials is responsible for simply getting credentials.
 func (rc RESTController) getCredentials(r *http.Request) (string, error) {
 	rc.logger.Info("Get request credentials...")
-	for i, auth := range rc.credentials {
+	for _, auth := range rc.credentials {
 		token, err := auth.Extract(r)
-		if err != nil {
-			if token == "" {
-				rc.logger.Debugf("[%d] credential error: %v", i, err)
-				continue
-			}
-			// if there's an error AND a token has been sent, we must send it to upstream
-			// generate an error response.
-			return token, err
-		}
-		// there's no error but somehow the token returned empty.
-		if token == "" {
+		if authErrors.IsNotFound(err) {
 			continue
 		}
+		if err != nil {
+			return "", err
+		}
 		// credentials sent.
+		rc.logger.Debug(token)
 		return token, nil
 	}
 	// back to start OIDC flow.
-	return "", errors.New("no credentials were found")
+	return "", authErrors.ErrNotFound
 }
 
 func (rc RESTController) setUserInfoHeaders(w http.ResponseWriter, info models.UserInfo) {

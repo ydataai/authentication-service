@@ -7,6 +7,5 @@ type SuccessResponse struct {
 
 // ErrorResponse defines a struct with the JSON error response.
 type ErrorResponse struct {
-	Error            string `json:"error,omitempty"`
-	ErrorDescription string `json:"error_description,omitempty"`
+	Message string `json:"message,omitempty"`
 }

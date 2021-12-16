@@ -1,11 +1,11 @@
 package handlers
 
 import (
-	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/ydataai/authentication-service/internal/configurations"
+	authErrors "github.com/ydataai/authentication-service/internal/errors"
 	"github.com/ydataai/go-core/pkg/common/logging"
 )
 
@@ -30,11 +30,11 @@ func (ah *HeaderCredentialsHandler) Extract(r *http.Request) (string, error) {
 	// Try to get session from header
 	token := getBearerToken(r.Header.Get(ah.restCtrlConfig.AuthHeader))
 	if token == "" {
-		return "", errors.New(notFound + ah.restCtrlConfig.AuthHeader + " header")
+		ah.logger.Debugf("%s %s header", notFoundMsg, ah.restCtrlConfig.AuthHeader)
+		return "", authErrors.ErrNotFound
 	}
 
-	ah.logger.Infof(found + ah.restCtrlConfig.AuthHeader + " header")
-	ah.logger.Debug(token)
+	ah.logger.Infof("%s %s header", foundMsg, ah.restCtrlConfig.AuthHeader)
 	return token, nil
 }
 

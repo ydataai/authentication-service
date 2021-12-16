@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	"errors"
 	"net/http"
 
+	authErrors "github.com/ydataai/authentication-service/internal/errors"
 	"github.com/ydataai/go-core/pkg/common/logging"
 )
 
@@ -23,10 +23,10 @@ func NewCookieCredentialsHandler(logger logging.Logger) CredentialsHandler {
 func (ac *CookieCredentialsHandler) Extract(r *http.Request) (string, error) {
 	token, err := r.Cookie("access_token")
 	if err != nil || token.Value == "" {
-		return "", errors.New(notFound + "cookie")
+		ac.logger.Debugf("%s cookie", notFoundMsg)
+		return "", authErrors.ErrNotFound
 	}
 
-	ac.logger.Infof(found + "cookie")
-	ac.logger.Debug(token.Value)
+	ac.logger.Infof("%s cookie", foundMsg)
 	return token.Value, nil
 }

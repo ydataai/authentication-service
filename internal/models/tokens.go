@@ -34,7 +34,6 @@ type CustomClaims struct {
 
 // UserInfo defines a user info struct.
 type UserInfo struct {
-	ID          string `json:"user_id,omitempty"`
-	Name        string `json:"user_name,omitempty"`
-	AccessToken string `json:"access_token,omitempty"`
+	ID   string `json:"user_id,omitempty"`
+	Name string `json:"user_name,omitempty"`
 }

@@ -152,10 +152,7 @@ func (osvc *OIDCService) Decode(tokenString string) (map[string]interface{}, err
 	}
 
 	if token.Valid {
-		claims := token.Claims.(jwt.MapClaims)
-		claims["access_token"] = tokenString
-
-		return claims, nil
+		return token.Claims.(jwt.MapClaims), nil
 	}
 
 	if ve, ok := err.(*jwt.ValidationError); ok {
@@ -176,9 +173,8 @@ func (osvc *OIDCService) Decode(tokenString string) (map[string]interface{}, err
 // GetUserInfo returns the user information.
 func (osvc *OIDCService) GetUserInfo(info map[string]interface{}) models.UserInfo {
 	return models.UserInfo{
-		ID:          info[osvc.configuration.UserIDClaim].(string),
-		Name:        info[osvc.configuration.UserNameClaim].(string),
-		AccessToken: info["access_token"].(string),
+		ID:   info[osvc.configuration.UserIDClaim].(string),
+		Name: info[osvc.configuration.UserNameClaim].(string),
 	}
 }
 
