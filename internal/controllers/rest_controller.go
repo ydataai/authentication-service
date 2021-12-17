@@ -40,7 +40,7 @@ func NewRESTController(
 	}
 }
 
-// Boot initialize creating some routes.
+// Boot initializes creating some routes.
 func (rc RESTController) Boot(s *server.Server) {
 	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.AuthenticationSession))
 	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.OIDCProviderCallback))
@@ -60,19 +60,14 @@ func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// if an unexpected error occurs
+	w.Header().Set("Content-Type", "application/json")
+
+	// if an unexpected error occurs, the flow must be stopped.
 	if err != nil {
 		rc.logger.Error(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		jsonBody := models.ErrorResponse{
-			Message:   err.Error(),
-			Timestamp: time.Now(),
-		}
-		json.NewEncoder(w).Encode(jsonBody)
+		rc.showErrorResponse(w, err, http.StatusInternalServerError)
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 
 	claims, err := rc.oidcService.Decode(token)
 	// check if the token is expired.
@@ -82,19 +77,14 @@ func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Re
 		rc.RedirectToOIDCProvider(w, r)
 		return
 	}
-	// if a token was passed but it is not valid, display the error and stop the flow.
+	// if a token was passed but it is not valid, the flow must be stopped.
 	if err != nil {
 		rc.logger.Errorf("an error occurred while decoding token: %v", err)
-		w.WriteHeader(http.StatusBadRequest)
-		jsonBody := models.ErrorResponse{
-			Message:   err.Error(),
-			Timestamp: time.Now(),
-		}
-		json.NewEncoder(w).Encode(jsonBody)
+		rc.showErrorResponse(w, err, http.StatusBadGateway)
 		return
 	}
 
-	// we've a valid token, let's get the TokenInfo to write in the header.
+	// if the token passed is valid, let's get the TokenInfo to write in the header.
 	tokenInfo := rc.oidcService.GetTokenInfo(claims)
 	rc.logger.Infof("Authorizing request for UserID: %v", tokenInfo.UID)
 
@@ -212,4 +202,15 @@ func (rc RESTController) setSessionCookie(w http.ResponseWriter, r *http.Request
 
 func (rc RESTController) deleteSessionCookie(w http.ResponseWriter, name string) {
 	http.SetCookie(w, &http.Cookie{Name: name, MaxAge: -1, Path: rc.configuration.AuthServiceURL})
+}
+
+func (rc RESTController) showErrorResponse(w http.ResponseWriter,
+	err error, statusCode int) {
+
+	w.WriteHeader(statusCode)
+	jsonBody := models.ErrorResponse{
+		Message:   err.Error(),
+		Timestamp: time.Now(),
+	}
+	json.NewEncoder(w).Encode(jsonBody)
 }
