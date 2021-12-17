@@ -14,7 +14,6 @@ type RESTControllerConfiguration struct {
 	HTTPRequestTimeout time.Duration `envconfig:"HTTP_REQUEST_TIMEOUT" default:"30s"`
 	AuthHeader         string        `envconfig:"AUTH_HEADER" default:"Authorization"`
 	UserIDHeader       string        `envconfig:"USER_ID_HEADER" default:"userid"`
-	UserIDPrefix       string        `envconfig:"USER_ID_PREFIX" default:""`
 	CookieMaxAge       int           `envconfig:"COOKIE_MAX_AGE" default:"86400"`
 }
 

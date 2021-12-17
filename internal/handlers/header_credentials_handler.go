@@ -29,7 +29,7 @@ func NewHeaderCredentialsHandler(logger logging.Logger,
 func (ah *HeaderCredentialsHandler) Extract(r *http.Request) (string, error) {
 	token, err := getBearerToken(r.Header.Get(ah.restCtrlConfig.AuthHeader))
 	if err != nil {
-		ah.logger.Debugf("%s %s header", notFoundMsg, ah.restCtrlConfig.AuthHeader)
+		ah.logger.Infof("%s %s header", notFoundMsg, ah.restCtrlConfig.AuthHeader)
 		return "", err
 	}
 
@@ -43,7 +43,7 @@ func getBearerToken(value string) (string, error) {
 		return strings.TrimPrefix(value, "Bearer "), nil
 	}
 	if value == "" {
-		return "", authErrors.ErrNotFound
+		return "", authErrors.ErrTokenNotFound
 	}
 	return value, nil
 }

@@ -19,7 +19,7 @@ import (
 	"github.com/ydataai/go-core/pkg/common/logging"
 )
 
-// OIDCService defines the oidc server struct.
+// OIDCService defines the OIDC Service struct.
 type OIDCService struct {
 	configuration  configurations.OIDCServiceConfiguration
 	client         clients.OIDCClient
@@ -27,22 +27,29 @@ type OIDCService struct {
 	logger         logging.Logger
 }
 
-// NewOIDCService creates a new OIDC Service.
+// OIDCServiceInterface defines a interface for OIDC Service.
+type OIDCServiceInterface interface {
+	GetOIDCProviderURL() (string, error)
+	Claims(ctx context.Context, code string) (models.Tokens, error)
+	IsFlowSecure(state string, token models.Tokens) (bool, error)
+
+	Create(cc *models.CustomClaims) (models.CustomClaims, error)
+	Decode(tokenString string) (map[string]interface{}, error)
+	GetUserInfo(info map[string]interface{}) models.TokenInfo
+}
+
+// NewOIDCService creates a new OIDC Service struct.
 func NewOIDCService(logger logging.Logger,
 	configuration configurations.OIDCServiceConfiguration,
 	client clients.OIDCClient,
-	sessionStorage *storages.SessionStorage) OIDCService {
-	return OIDCService{
+	sessionStorage *storages.SessionStorage) OIDCServiceInterface {
+	return &OIDCService{
 		configuration:  configuration,
 		client:         client,
 		sessionStorage: sessionStorage,
 		logger:         logger,
 	}
 }
-
-var (
-	hmacSecret = []byte("YData") // For HMAC signing method, the key can be any []byte
-)
 
 // GetOIDCProviderURL gets OIDC provider URL from the OAuth2 configuration.
 func (osvc *OIDCService) GetOIDCProviderURL() (string, error) {
@@ -132,7 +139,7 @@ func (osvc *OIDCService) Create(cc *models.CustomClaims) (models.CustomClaims, e
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, customClaims)
 
 	// Sign and get the complete encoded token as a string using the secret.
-	customClaims.AccessToken, err = token.SignedString(hmacSecret)
+	customClaims.AccessToken, err = token.SignedString(osvc.configuration.HMACSecret)
 
 	return customClaims, err
 }
@@ -145,7 +152,7 @@ func (osvc *OIDCService) Decode(tokenString string) (map[string]interface{}, err
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 
-		return hmacSecret, nil
+		return osvc.configuration.HMACSecret, nil
 	})
 
 	if token == nil {
@@ -172,10 +179,10 @@ func (osvc *OIDCService) Decode(tokenString string) (map[string]interface{}, err
 	return nil, errors.New("couldn't handle this token: " + err.Error())
 }
 
-// GetTokenInfo returns the token information.
-func (osvc *OIDCService) GetTokenInfo(info map[string]interface{}) models.TokenInfo {
+// GetUserInfo returns the token with user information.
+func (osvc *OIDCService) GetUserInfo(info map[string]interface{}) models.TokenInfo {
 	return models.TokenInfo{
-		UID:       info[osvc.configuration.UserIDClaim].(string),
+		UID:       osvc.configuration.UserIDPrefix + info[osvc.configuration.UserIDClaim].(string),
 		Name:      info[osvc.configuration.UserNameClaim].(string),
 		ExpiresAt: time.Unix(int64(info["exp"].(float64)), 0),
 	}

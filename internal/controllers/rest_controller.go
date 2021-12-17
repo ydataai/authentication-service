@@ -20,7 +20,7 @@ import (
 // RESTController defines rest controller.
 type RESTController struct {
 	configuration configurations.RESTControllerConfiguration
-	oidcService   services.OIDCService
+	oidcService   services.OIDCServiceInterface
 	credentials   []handlers.CredentialsHandler
 	logger        logging.Logger
 }
@@ -29,7 +29,7 @@ type RESTController struct {
 func NewRESTController(
 	logger logging.Logger,
 	configuration configurations.RESTControllerConfiguration,
-	oidcService services.OIDCService,
+	oidcService services.OIDCServiceInterface,
 	credentials []handlers.CredentialsHandler,
 ) RESTController {
 	return RESTController{
@@ -54,8 +54,7 @@ func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Re
 	// workflow to identify if there is a token present.
 	token, err := rc.getCredentials(r)
 	// if a token is not found, the OIDC flow will be started.
-	if authErrors.IsNotFound(err) {
-		rc.logger.Warn(err)
+	if authErrors.IsTokenNotFound(err) {
 		rc.RedirectToOIDCProvider(w, r)
 		return
 	}
@@ -80,22 +79,17 @@ func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Re
 	// if a token was passed but it is not valid, the flow must be stopped.
 	if err != nil {
 		rc.logger.Errorf("an error occurred while decoding token: %v", err)
-		rc.showErrorResponse(w, err, http.StatusBadGateway)
+		rc.showErrorResponse(w, err, http.StatusBadRequest)
 		return
 	}
 
 	// if the token passed is valid, let's get the TokenInfo to write in the header.
-	tokenInfo := rc.oidcService.GetTokenInfo(claims)
-	rc.logger.Infof("Authorizing request for UserID: %v", tokenInfo.UID)
+	userInfo := rc.oidcService.GetUserInfo(claims)
+	rc.logger.Infof("Authorizing request for UserID: %v", userInfo.UID)
 
-	rc.setUserInfoHeaders(w, tokenInfo)
-
+	// set UserID Header + 200 OK
+	w.Header().Set(rc.configuration.UserIDHeader, userInfo.UID)
 	w.WriteHeader(http.StatusOK)
-	jsonBody := models.SuccessResponse{
-		AccessToken: token,
-		ExpiresAt:   tokenInfo.ExpiresAt,
-	}
-	json.NewEncoder(w).Encode(jsonBody)
 }
 
 // RedirectToOIDCProvider is the handler responsible for redirecting to the OIDC Provider.
@@ -164,7 +158,7 @@ func (rc RESTController) getCredentials(r *http.Request) (string, error) {
 	rc.logger.Info("Get request credentials...")
 	for _, auth := range rc.credentials {
 		token, err := auth.Extract(r)
-		if authErrors.IsNotFound(err) {
+		if authErrors.IsTokenNotFound(err) {
 			continue
 		}
 		if err != nil {
@@ -175,17 +169,7 @@ func (rc RESTController) getCredentials(r *http.Request) (string, error) {
 		return token, nil
 	}
 	// back to start OIDC flow.
-	return "", authErrors.ErrNotFound
-}
-
-func (rc RESTController) setUserInfoHeaders(w http.ResponseWriter, info models.TokenInfo) {
-	headers := map[string]string{
-		rc.configuration.UserIDHeader: rc.configuration.UserIDPrefix + info.UID,
-	}
-
-	for k, v := range headers {
-		w.Header().Set(k, v)
-	}
+	return "", authErrors.ErrTokenNotFound
 }
 
 func (rc RESTController) setSessionCookie(w http.ResponseWriter, r *http.Request, name, value string) {

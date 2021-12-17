@@ -26,7 +26,6 @@ func main() {
 	oidcClientConfiguration := configurations.OIDCClientConfiguration{}
 	oidcServiceConfiguration := configurations.OIDCServiceConfiguration{}
 	restConfiguration := configurations.RESTControllerConfiguration{}
-	sessionStorageConfiguration := configurations.SessionStorageConfiguration{}
 
 	if err := config.InitConfigurationVariables([]config.ConfigurationVariables{
 		&loggerConfiguration,
@@ -34,7 +33,6 @@ func main() {
 		&oidcClientConfiguration,
 		&oidcServiceConfiguration,
 		&restConfiguration,
-		&sessionStorageConfiguration,
 	}); err != nil {
 		fmt.Println(fmt.Errorf("[✖️] Could not set configuration variables. Err: %v", err))
 		os.Exit(1)
@@ -49,7 +47,7 @@ func main() {
 	oidcClient.StartSetup()
 
 	// Initializes a storage to save temporary sessions configured with TTL.
-	sessionStorage := storages.NewSessionStorage(sessionStorageConfiguration)
+	sessionStorage := storages.NewSessionStorage()
 
 	oidcService := services.NewOIDCService(logger, oidcServiceConfiguration, oidcClient, sessionStorage)
 
