@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -17,78 +16,64 @@ func TestHeaderExtract(t *testing.T) {
 
 	cc := NewHeaderCredentialsHandler(logger)
 
-	mockRequestWithAuthorization := func(authType, token string) *http.Request {
-		h := &http.Request{Header: http.Header{}}
-		if authType != "" {
-			h.Header.Set("Authorization", fmt.Sprintf("%s %s", authType, token))
-		}
-		return h
+	mockRequestWithAuthorization := func(token string) *http.Request {
+		return &http.Request{Header: http.Header{
+			"Authorization": []string{token},
+		}}
 	}
 
 	testCases := []struct {
-		authType string
 		token    string
 		expected string
 	}{
 		{
-			authType: "Bearer",
-			token:    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjI4Mzk5NDU0NjcsImlhdCI6MTYzOTk0NTE2N30.BxSAExKYane2X2XMNS-i5INMAzM9RFTQM-xGFeMytYo",
+			token:    "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjI4Mzk5NDU0NjcsImlhdCI6MTYzOTk0NTE2N30.BxSAExKYane2X2XMNS-i5INMAzM9RFTQM-xGFeMytYo",
 			expected: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjI4Mzk5NDU0NjcsImlhdCI6MTYzOTk0NTE2N30.BxSAExKYane2X2XMNS-i5INMAzM9RFTQM-xGFeMytYo",
 		},
 		{
-			authType: "Bearer",
-			token:    ".eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjI4Mzk5NDU0NjcsImlhdCI6MTYzOTk0NTE2N30.BxSAExKYane2X2XMNS-i5INMAzM9RFTQM-xGFeMytYo",
+			token:    "Bearer .eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjI4Mzk5NDU0NjcsImlhdCI6MTYzOTk0NTE2N30.BxSAExKYane2X2XMNS-i5INMAzM9RFTQM-xGFeMytYo",
 			expected: ".eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjI4Mzk5NDU0NjcsImlhdCI6MTYzOTk0NTE2N30.BxSAExKYane2X2XMNS-i5INMAzM9RFTQM-xGFeMytYo",
 		},
 		{
-			authType: "Bearer",
-			token:    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+			token:    "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
 			expected: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
 		},
 		{
-			authType: "Bearer",
-			token:    "    ",
+			token:    "Bearer    ",
 			expected: "",
 		},
 		{
-			authType: "Bearer",
-			token:    "     .",
+			token:    "Bearer     .",
 			expected: ".",
 		},
 		{
-			authType: "Bearer",
-			token:    "     .      ",
+			token:    "Bearer     .      ",
 			expected: ".",
 		},
 		{
-			authType: "Basic",
-			token:    "d3NhbGxlczoxMjEzMTMx",
+			token:    "Basic d3NhbGxlczoxMjEzMTMx",
 			expected: "Basic d3NhbGxlczoxMjEzMTMx",
 		},
 		{
-			authType: "Basic",
-			token:    "",
+			token:    "Basic ",
 			expected: "Basic ",
 		},
 		{
-			authType: "Basic",
-			token:    "     .      ",
+			token:    "Basic      .      ",
 			expected: "Basic      .      ",
 		},
 		{
-			authType: "",
 			token:    "d3NhbGxlczoxMjEzMTMx",
-			expected: "",
+			expected: "d3NhbGxlczoxMjEzMTMx",
 		},
 		{
-			authType: "",
 			token:    "",
 			expected: "",
 		},
 	}
 
 	for _, tt := range testCases {
-		r := mockRequestWithAuthorization(tt.authType, tt.token)
+		r := mockRequestWithAuthorization(tt.token)
 		token, err := cc.Extract(r)
 
 		if authErrors.IsTokenNotFound(err) {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -74,11 +73,7 @@ func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.R
 	// if so, the OIDC flow will be started to recreate a token.
 	if authErrors.IsTokenExpired(err) {
 		rc.logger.Warn(err)
-		if strings.Contains(r.Header.Get("Accept"), "text/html") {
-			rc.RedirectToOIDCProvider(w, r)
-			return
-		}
-		rc.errorResponse(w, err)
+		rc.RedirectToOIDCProvider(w, r)
 		return
 	}
 	// if a token was passed but it is not valid, the flow must be stopped.

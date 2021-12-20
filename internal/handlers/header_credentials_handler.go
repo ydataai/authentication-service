@@ -35,7 +35,7 @@ func (ah *HeaderCredentialsHandler) Extract(r *http.Request) (string, error) {
 		return "", authErrors.ErrTokenNotFound
 	}
 
-	// token found in authorization header of type Bearer.
+	// token found in authorization header.
 	ah.logger.Infof("%s authorization header", foundMsg)
 	return token, nil
 }
