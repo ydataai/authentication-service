@@ -22,12 +22,7 @@ func NewHeaderCredentialsHandler(logger logging.Logger) CredentialsHandler {
 
 // Extract is an interface that extracts credential information from the header.
 func (ah *HeaderCredentialsHandler) Extract(r *http.Request) (string, error) {
-	var token string
-	for k := range r.Header {
-		if strings.ToLower(k) == "authorization" {
-			break
-		}
-	}
+	token := r.Header.Get("Authorization")
 	// make sure the authorization header is of type Bearer.
 	if strings.HasPrefix(token, "Bearer") {
 		token = strings.TrimSpace(
