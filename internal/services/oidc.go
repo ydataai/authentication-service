@@ -182,9 +182,8 @@ func (osvc *OIDCService) Decode(tokenString string) (map[string]interface{}, err
 // GetUserInfo returns the token with user information.
 func (osvc *OIDCService) GetUserInfo(info map[string]interface{}) models.TokenInfo {
 	return models.TokenInfo{
-		UID:       osvc.configuration.UserIDPrefix + info[osvc.configuration.UserIDClaim].(string),
-		Name:      info[osvc.configuration.UserNameClaim].(string),
-		ExpiresAt: time.Unix(int64(info["exp"].(float64)), 0),
+		UID:  osvc.configuration.UserIDPrefix + info[osvc.configuration.UserIDClaim].(string),
+		Name: info[osvc.configuration.UserNameClaim].(string),
 	}
 }
 
