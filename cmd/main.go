@@ -52,7 +52,7 @@ func main() {
 	oidcService := services.NewOIDCService(logger, oidcServiceConfiguration, oidcClient, sessionStorage)
 
 	// Gathering the Credentials Handler.
-	headerCredentials := handlers.NewHeaderCredentialsHandler(logger, restConfiguration)
+	headerCredentials := handlers.NewHeaderCredentialsHandler(logger)
 	cookieCredentials := handlers.NewCookieCredentialsHandler(logger)
 	// preference is chosen here.
 	credentials := []handlers.CredentialsHandler{

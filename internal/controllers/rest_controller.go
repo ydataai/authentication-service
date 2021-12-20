@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -42,15 +43,15 @@ func NewRESTController(
 
 // Boot initializes creating some routes.
 func (rc RESTController) Boot(s *server.Server) {
-	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.AuthenticationSession))
+	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.CheckForAuthentication))
 	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.OIDCProviderCallback))
 	s.Router.GET(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
 }
 
-// AuthenticationSession is responsible for knowing if the user already has a valid credential or not.
+// CheckForAuthentication is responsible for knowing if the user already has a valid credential or not.
 // If so, forward 200 OK + UserID Headers.
 // If not, begin OIDC Flow.
-func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Request) {
+func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.Request) {
 	// workflow to identify if there is a token present.
 	token, err := rc.getCredentials(r)
 	// if a token is not found, the OIDC flow will be started.
@@ -64,7 +65,7 @@ func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Re
 	// if an unexpected error occurs, the flow must be stopped.
 	if err != nil {
 		rc.logger.Error(err)
-		rc.showErrorResponse(w, err, http.StatusInternalServerError)
+		rc.errorResponse(w, err)
 		return
 	}
 
@@ -73,23 +74,29 @@ func (rc RESTController) AuthenticationSession(w http.ResponseWriter, r *http.Re
 	// if so, the OIDC flow will be started to recreate a token.
 	if authErrors.IsTokenExpired(err) {
 		rc.logger.Warn(err)
-		rc.RedirectToOIDCProvider(w, r)
+		if strings.Contains(r.Header.Get("Accept"), "text/html") {
+			rc.RedirectToOIDCProvider(w, r)
+			return
+		}
+		rc.errorResponse(w, err)
 		return
 	}
 	// if a token was passed but it is not valid, the flow must be stopped.
 	if err != nil {
 		rc.logger.Errorf("an error occurred while decoding token: %v", err)
-		rc.showErrorResponse(w, err, http.StatusBadRequest)
+		rc.errorResponse(w, err)
 		return
 	}
 
 	// if the token passed is valid, let's get the TokenInfo to write in the header.
+	rc.logger.Debugf("Valid Token: %s", token)
 	userInfo := rc.oidcService.GetUserInfo(claims)
 	rc.logger.Infof("Authorizing request for UserID: %v", userInfo.UID)
 
 	// set UserID Header + 200 OK
 	w.Header().Set(rc.configuration.UserIDHeader, userInfo.UID)
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
 }
 
 // RedirectToOIDCProvider is the handler responsible for redirecting to the OIDC Provider.
@@ -97,8 +104,8 @@ func (rc RESTController) RedirectToOIDCProvider(w http.ResponseWriter, r *http.R
 	rc.logger.Info("Starting OIDC flow")
 	oidcProviderURL, err := rc.oidcService.GetOIDCProviderURL()
 	if err != nil {
-		rc.logger.Errorf(err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		rc.logger.Error(err.Error())
+		rc.errorResponse(w, err)
 		return
 	}
 
@@ -120,7 +127,7 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	token, err := rc.oidcService.Claims(ctx, codeProvider)
 	if err != nil {
 		rc.logger.Error(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		rc.errorResponse(w, err)
 		return
 	}
 
@@ -129,15 +136,15 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	safe, err := rc.oidcService.IsFlowSecure(stateProvider, token)
 	if !safe {
 		rc.logger.Error(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		rc.errorResponse(w, err)
 		return
 	}
 
 	// If the flow is secure, a JWT will be created...
 	jwt, err := rc.oidcService.Create(&token.CustomClaims)
 	if err != nil {
-		rc.logger.Error("an error occurred while creating a JWT. Error: " + err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		rc.logger.Errorf("an error occurred while creating a JWT. Error: %v", err)
+		rc.errorResponse(w, err)
 		return
 	}
 	// ...set a session cookie.
@@ -188,10 +195,15 @@ func (rc RESTController) deleteSessionCookie(w http.ResponseWriter, name string)
 	http.SetCookie(w, &http.Cookie{Name: name, MaxAge: -1, Path: rc.configuration.AuthServiceURL})
 }
 
-func (rc RESTController) showErrorResponse(w http.ResponseWriter,
-	err error, statusCode int) {
+func (rc RESTController) errorResponse(w http.ResponseWriter, err error) {
+	if authErrors.IsTokenNotFound(err) {
+		w.WriteHeader(http.StatusNotFound)
+	} else if authErrors.IsTokenExpired(err) || authErrors.IsTokenInactiveYet(err) {
+		w.WriteHeader(http.StatusUnauthorized)
+	} else {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 
-	w.WriteHeader(statusCode)
 	jsonBody := models.ErrorResponse{
 		Message:   err.Error(),
 		Timestamp: time.Now(),
