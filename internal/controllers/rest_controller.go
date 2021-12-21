@@ -48,7 +48,7 @@ func (rc RESTController) Boot(s *server.Server) {
 }
 
 // CheckForAuthentication is responsible for knowing if the user already has a valid credential or not.
-// If so, forward 200 OK + UserID Headers.
+// If so, forward 2XX Status Code + UserID Headers.
 // If not, begin OIDC Flow.
 func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.Request) {
 	// workflow to identify if there is a token present.
@@ -88,10 +88,9 @@ func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.R
 	userInfo := rc.oidcService.GetUserInfo(claims)
 	rc.logger.Infof("Authorizing request for UserID: %v", userInfo.UID)
 
-	// set UserID Header + 200 OK
+	// set UserID Header + 204 NoContent
 	w.Header().Set(rc.configuration.UserIDHeader, userInfo.UID)
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // RedirectToOIDCProvider is the handler responsible for redirecting to the OIDC Provider.

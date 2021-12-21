@@ -8,6 +8,8 @@ import (
 	"github.com/ydataai/go-core/pkg/common/logging"
 )
 
+const tokenType = "Bearer"
+
 // HeaderCredentialsHandler defines a HeaderCredentialsHandler struct.
 type HeaderCredentialsHandler struct {
 	logger logging.Logger
@@ -24,9 +26,9 @@ func NewHeaderCredentialsHandler(logger logging.Logger) CredentialsHandler {
 func (ah *HeaderCredentialsHandler) Extract(r *http.Request) (string, error) {
 	token := r.Header.Get("Authorization")
 	// make sure the authorization header is of type Bearer.
-	if strings.HasPrefix(token, "Bearer") {
+	if strings.HasPrefix(token, tokenType) {
 		token = strings.TrimSpace(
-			strings.TrimPrefix(token, "Bearer"),
+			strings.TrimPrefix(token, tokenType),
 		)
 	}
 
