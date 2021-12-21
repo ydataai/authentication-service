@@ -34,8 +34,7 @@ type OIDCServiceInterface interface {
 	IsFlowSecure(state string, token models.Tokens) (bool, error)
 
 	Create(cc *models.CustomClaims) (models.CustomClaims, error)
-	Decode(tokenString string) (map[string]interface{}, error)
-	GetUserInfo(info map[string]interface{}) models.TokenInfo
+	Decode(tokenString string) (models.TokenInfo, error)
 }
 
 // NewOIDCService creates a new OIDC Service struct.
@@ -145,7 +144,7 @@ func (osvc *OIDCService) Create(cc *models.CustomClaims) (models.CustomClaims, e
 }
 
 // Decode validates the token and returns the claims.
-func (osvc *OIDCService) Decode(tokenString string) (map[string]interface{}, error) {
+func (osvc *OIDCService) Decode(tokenString string) (models.TokenInfo, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// Don't forget to validate the alg is what you expect:
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -156,35 +155,31 @@ func (osvc *OIDCService) Decode(tokenString string) (map[string]interface{}, err
 	})
 
 	if token == nil {
-		return nil, errors.New("an unexpected error occurred while validating the JWT token")
+		return models.TokenInfo{}, errors.New("an unexpected error occurred while validating the JWT token")
 	}
 
 	if token.Valid {
-		return token.Claims.(jwt.MapClaims), nil
+		claims := token.Claims.(jwt.MapClaims)
+		return models.TokenInfo{
+			UID:  osvc.configuration.UserIDPrefix + claims[osvc.configuration.UserIDClaim].(string),
+			Name: claims[osvc.configuration.UserNameClaim].(string),
+		}, nil
 	}
 
 	if ve, ok := err.(*jwt.ValidationError); ok {
 		if ve.Errors&jwt.ValidationErrorMalformed != 0 {
-			return nil, errors.New("that's not even a token")
+			return models.TokenInfo{}, errors.New("that's not even a token")
 
 		} else if ve.Errors&jwt.ValidationErrorExpired != 0 {
-			return nil, authErrors.ErrTokenExpired
+			return models.TokenInfo{}, authErrors.ErrTokenExpired
 		} else if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
-			return nil, authErrors.ErrTokenInactiveYet
+			return models.TokenInfo{}, authErrors.ErrTokenInactiveYet
 		} else {
-			return nil, errors.New("couldn't handle this token: " + err.Error())
+			return models.TokenInfo{}, errors.New("couldn't handle this token: " + err.Error())
 		}
 	}
 
-	return nil, errors.New("couldn't handle this token: " + err.Error())
-}
-
-// GetUserInfo returns the token with user information.
-func (osvc *OIDCService) GetUserInfo(info map[string]interface{}) models.TokenInfo {
-	return models.TokenInfo{
-		UID:  osvc.configuration.UserIDPrefix + info[osvc.configuration.UserIDClaim].(string),
-		Name: info[osvc.configuration.UserNameClaim].(string),
-	}
+	return models.TokenInfo{}, errors.New("couldn't handle this token: " + err.Error())
 }
 
 // getValueFromToken gets the nonce from the ID Token.

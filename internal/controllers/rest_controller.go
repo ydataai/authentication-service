@@ -48,7 +48,7 @@ func (rc RESTController) Boot(s *server.Server) {
 }
 
 // CheckForAuthentication is responsible for knowing if the user already has a valid credential or not.
-// If so, forward 2XX Status Code + UserID Headers.
+// If so, forward 200 OK + UserID Headers.
 // If not, begin OIDC Flow.
 func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.Request) {
 	// workflow to identify if there is a token present.
@@ -61,14 +61,7 @@ func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.R
 
 	w.Header().Set("Content-Type", "application/json")
 
-	// if an unexpected error occurs, the flow must be stopped.
-	if err != nil {
-		rc.logger.Error(err)
-		rc.errorResponse(w, err)
-		return
-	}
-
-	claims, err := rc.oidcService.Decode(token)
+	tokenInfo, err := rc.oidcService.Decode(token)
 	// check if the token is expired.
 	// if so, the OIDC flow will be started to recreate a token.
 	if authErrors.IsTokenExpired(err) {
@@ -79,18 +72,17 @@ func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.R
 	// if a token was passed but it is not valid, the flow must be stopped.
 	if err != nil {
 		rc.logger.Errorf("an error occurred while decoding token: %v", err)
-		rc.errorResponse(w, err)
+		rc.forbiddenResponse(w, err)
 		return
 	}
 
 	// if the token passed is valid, let's get the TokenInfo to write in the header.
 	rc.logger.Debugf("Valid Token: %s", token)
-	userInfo := rc.oidcService.GetUserInfo(claims)
-	rc.logger.Infof("Authorizing request for UserID: %v", userInfo.UID)
+	rc.logger.Infof("Authorizing request for UserID: %v", tokenInfo.UID)
 
-	// set UserID Header + 204 NoContent
-	w.Header().Set(rc.configuration.UserIDHeader, userInfo.UID)
-	w.WriteHeader(http.StatusNoContent)
+	// set UserID Header + 200 OK
+	w.Header().Set(rc.configuration.UserIDHeader, tokenInfo.UID)
+	w.WriteHeader(http.StatusOK)
 }
 
 // RedirectToOIDCProvider is the handler responsible for redirecting to the OIDC Provider.
@@ -99,7 +91,7 @@ func (rc RESTController) RedirectToOIDCProvider(w http.ResponseWriter, r *http.R
 	oidcProviderURL, err := rc.oidcService.GetOIDCProviderURL()
 	if err != nil {
 		rc.logger.Error(err.Error())
-		rc.errorResponse(w, err)
+		rc.forbiddenResponse(w, err)
 		return
 	}
 
@@ -121,7 +113,7 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	token, err := rc.oidcService.Claims(ctx, codeProvider)
 	if err != nil {
 		rc.logger.Error(err)
-		rc.errorResponse(w, err)
+		rc.forbiddenResponse(w, err)
 		return
 	}
 
@@ -130,7 +122,7 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	safe, err := rc.oidcService.IsFlowSecure(stateProvider, token)
 	if !safe {
 		rc.logger.Error(err)
-		rc.errorResponse(w, err)
+		rc.forbiddenResponse(w, err)
 		return
 	}
 
@@ -138,7 +130,7 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	jwt, err := rc.oidcService.Create(&token.CustomClaims)
 	if err != nil {
 		rc.logger.Errorf("an error occurred while creating a JWT. Error: %v", err)
-		rc.errorResponse(w, err)
+		rc.forbiddenResponse(w, err)
 		return
 	}
 	// ...set a session cookie.
@@ -161,9 +153,6 @@ func (rc RESTController) getCredentials(r *http.Request) (string, error) {
 		token, err := auth.Extract(r)
 		if authErrors.IsTokenNotFound(err) {
 			continue
-		}
-		if err != nil {
-			return "", err
 		}
 		// credentials sent.
 		rc.logger.Debug(token)
@@ -189,15 +178,8 @@ func (rc RESTController) deleteSessionCookie(w http.ResponseWriter, name string)
 	http.SetCookie(w, &http.Cookie{Name: name, MaxAge: -1, Path: rc.configuration.AuthServiceURL})
 }
 
-func (rc RESTController) errorResponse(w http.ResponseWriter, err error) {
-	if authErrors.IsTokenNotFound(err) {
-		w.WriteHeader(http.StatusNotFound)
-	} else if authErrors.IsTokenExpired(err) || authErrors.IsTokenInactiveYet(err) {
-		w.WriteHeader(http.StatusUnauthorized)
-	} else {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-
+func (rc RESTController) forbiddenResponse(w http.ResponseWriter, err error) {
+	w.WriteHeader(http.StatusForbidden)
 	jsonBody := models.ErrorResponse{
 		Message:   err.Error(),
 		Timestamp: time.Now(),
