@@ -3,7 +3,7 @@ package models
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"errors"
+	"fmt"
 	"io"
 )
 
@@ -29,11 +29,11 @@ type Session struct {
 func CreateSession() (Session, error) {
 	state, err := randomString(16)
 	if err != nil {
-		return Session{}, errors.New("an error occurred while creating a temporary state. Error: " + err.Error())
+		return Session{}, fmt.Errorf("an error occurred while creating a temporary state. Error: %v", err)
 	}
 	nonce, err := randomString(16)
 	if err != nil {
-		return Session{}, errors.New("an error occurred while creating a temporary nonce. Error: " + err.Error())
+		return Session{}, fmt.Errorf("an error occurred while creating a temporary nonce. Error: %v", err)
 	}
 
 	return Session{

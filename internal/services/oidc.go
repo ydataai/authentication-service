@@ -75,7 +75,7 @@ func (osvc *OIDCService) Claims(ctx context.Context, code string) (models.Tokens
 
 	oauth2Token, err := osvc.client.OAuth2Config.Exchange(ctx, code)
 	if err != nil {
-		return models.Tokens{}, errors.New("failed to exchange token. Error: " + err.Error())
+		return models.Tokens{}, fmt.Errorf("failed to exchange token. Error: %v", err)
 	}
 	idToken, err := osvc.validateIDToken(ctx, oauth2Token)
 	if err != nil {
@@ -84,12 +84,12 @@ func (osvc *OIDCService) Claims(ctx context.Context, code string) (models.Tokens
 
 	idTokenClaims := new(json.RawMessage)
 	if err := idToken.Claims(&idTokenClaims); err != nil {
-		return models.Tokens{}, errors.New("An error occurred while validating ID Token. Error: " + err.Error())
+		return models.Tokens{}, fmt.Errorf("an error occurred while validating ID Token. Error: %v", err)
 	}
 
 	cc := models.CustomClaims{}
 	if err := idToken.Claims(&cc); err != nil {
-		return models.Tokens{}, errors.New("An unexpected error has occurred. Error: " + err.Error())
+		return models.Tokens{}, fmt.Errorf("an unexpected error has occurred. Error: %v", err)
 	}
 
 	return models.Tokens{
@@ -161,7 +161,7 @@ func (osvc *OIDCService) Decode(tokenString string) (models.TokenInfo, error) {
 	if token.Valid {
 		claims := token.Claims.(jwt.MapClaims)
 		return models.TokenInfo{
-			UID:  osvc.configuration.UserIDPrefix + claims[osvc.configuration.UserIDClaim].(string),
+			UID:  fmt.Sprintf("%s%s", osvc.configuration.UserIDPrefix, claims[osvc.configuration.UserIDClaim].(string)),
 			Name: claims[osvc.configuration.UserNameClaim].(string),
 		}, nil
 	}
@@ -174,12 +174,12 @@ func (osvc *OIDCService) Decode(tokenString string) (models.TokenInfo, error) {
 			return models.TokenInfo{}, authErrors.ErrTokenExpired
 		} else if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
 			return models.TokenInfo{}, authErrors.ErrTokenInactiveYet
-		} else {
-			return models.TokenInfo{}, errors.New("couldn't handle this token: " + err.Error())
 		}
+
+		return models.TokenInfo{}, fmt.Errorf("couldn't handle this token: %v", err)
 	}
 
-	return models.TokenInfo{}, errors.New("couldn't handle this token: " + err.Error())
+	return models.TokenInfo{}, fmt.Errorf("couldn't handle this token: %v", err)
 }
 
 // getValueFromToken gets the nonce from the ID Token.
@@ -203,7 +203,7 @@ func (osvc *OIDCService) validateIDToken(ctx context.Context, oauth2Token *oauth
 	}
 	idToken, err := osvc.client.Verifier.Verify(ctx, rawIDToken)
 	if err != nil {
-		return oidc.IDToken{}, errors.New("failed to verify ID Token. Error: " + err.Error())
+		return oidc.IDToken{}, fmt.Errorf("failed to verify ID Token. Error: %v", err)
 	}
 	osvc.logger.Info("[✔️] Login validated with ID token")
 
