@@ -87,17 +87,17 @@ func mockOIDCProvider(httpServer *server.Server, address string) {
       "authorization_code",
       "refresh_token",
       "urn:ietf:params:oauth:grant-type:device_code",
-		  "urn:ietf:params:oauth:grant-type:jwt-bearer"
+      "urn:ietf:params:oauth:grant-type:jwt-bearer"
     ],
     "response_types_supported": [
       "code",
       "token",
-		  "id_token",
-		  "code token",
-		  "code id_token",
-		  "token id_token",
-		  "code token id_token",
-		  "none"
+      "id_token",
+      "code token",
+      "code id_token",
+      "token id_token",
+      "code token id_token",
+      "none"
     ],
     "subject_types_supported": [
       "public"
@@ -133,8 +133,8 @@ func mockOIDCProvider(httpServer *server.Server, address string) {
       "given_name",
       "preferred_username",
       "at_hash",
-		  "picture",
-		  "family_name"
+      "picture",
+      "family_name"
     ]
   }
 	`
