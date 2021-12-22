@@ -31,3 +31,9 @@ type CustomClaims struct {
 	// https://datatracker.ietf.org/doc/html/rfc7519#section-4.1
 	jwt.RegisteredClaims
 }
+
+// TokenInfo defines a TokenInfo struct.
+type TokenInfo struct {
+	UID  string `json:"userid"`
+	Name string `json:"name"`
+}

@@ -9,16 +9,14 @@ import (
 
 // SessionStorage is a struct to temporarily saving the session.
 type SessionStorage struct {
-	configuration SessionStorageConfiguration
-	sessions      map[string]models.Session
-	mtx           sync.RWMutex
+	sessions map[string]models.Session
+	mtx      sync.RWMutex
 }
 
 // NewSessionStorage creates a new temporary session and saves for validation.
-func NewSessionStorage(config SessionStorageConfiguration) *SessionStorage {
+func NewSessionStorage() *SessionStorage {
 	return &SessionStorage{
-		configuration: config,
-		sessions:      make(map[string]models.Session),
+		sessions: make(map[string]models.Session),
 	}
 }
 

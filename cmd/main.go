@@ -6,7 +6,9 @@ import (
 	"os"
 
 	"github.com/ydataai/authentication-service/internal/clients"
+	"github.com/ydataai/authentication-service/internal/configurations"
 	"github.com/ydataai/authentication-service/internal/controllers"
+	"github.com/ydataai/authentication-service/internal/handlers"
 	"github.com/ydataai/authentication-service/internal/services"
 	"github.com/ydataai/authentication-service/internal/storages"
 	"github.com/ydataai/go-core/pkg/common/config"
@@ -21,16 +23,16 @@ var (
 func main() {
 	loggerConfiguration := logging.LoggerConfiguration{}
 	serverConfiguration := server.HTTPServerConfiguration{}
-	oidcConfiguration := clients.OIDCConfiguration{}
-	restConfiguration := controllers.RESTControllerConfiguration{}
-	sessionStorageConfiguration := storages.SessionStorageConfiguration{}
+	oidcClientConfiguration := configurations.OIDCClientConfiguration{}
+	oidcServiceConfiguration := configurations.OIDCServiceConfiguration{}
+	restConfiguration := configurations.RESTControllerConfiguration{}
 
 	if err := config.InitConfigurationVariables([]config.ConfigurationVariables{
 		&loggerConfiguration,
 		&serverConfiguration,
-		&oidcConfiguration,
+		&oidcClientConfiguration,
+		&oidcServiceConfiguration,
 		&restConfiguration,
-		&sessionStorageConfiguration,
 	}); err != nil {
 		fmt.Println(fmt.Errorf("[✖️] Could not set configuration variables. Err: %v", err))
 		os.Exit(1)
@@ -40,17 +42,25 @@ func main() {
 
 	logger.Info("Starting: Authentication Service")
 
-	oidcClient := clients.NewOIDCClient(logger, oidcConfiguration)
-
+	oidcClient := clients.NewOIDCClient(logger, oidcClientConfiguration)
 	// Start OIDC Provider setup.
 	oidcClient.StartSetup()
 
 	// Initializes a storage to save temporary sessions configured with TTL.
-	sessionStorage := storages.NewSessionStorage(sessionStorageConfiguration)
+	sessionStorage := storages.NewSessionStorage()
 
-	oidcService := services.NewOIDCService(logger, oidcClient, sessionStorage)
+	oidcService := services.NewOIDCService(logger, oidcServiceConfiguration, oidcClient, sessionStorage)
 
-	restController := controllers.NewRESTController(logger, restConfiguration, oidcService)
+	// Gathering the Credentials Handler.
+	headerCredentials := handlers.NewHeaderCredentialsHandler(logger)
+	cookieCredentials := handlers.NewCookieCredentialsHandler(logger)
+	// preference is chosen here.
+	credentials := []handlers.CredentialsHandler{
+		headerCredentials,
+		cookieCredentials,
+	}
+
+	restController := controllers.NewRESTController(logger, restConfiguration, oidcService, credentials)
 
 	httpServer := server.NewServer(logger, serverConfiguration)
 	restController.Boot(httpServer)

@@ -1,5 +1,5 @@
 -include .env
-export $(shell sed 's/=.*//' .env)
+# export $(shell sed 's/=.*//' .env)
 
 GOPATH=$(shell go env GOPATH)
 
