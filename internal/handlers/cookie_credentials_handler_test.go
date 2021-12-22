@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	authErrors "github.com/ydataai/authentication-service/internal/errors"
 	"github.com/ydataai/go-core/pkg/common/logging"
 )
@@ -56,7 +57,7 @@ func TestCookieExtract(t *testing.T) {
 		r := mockRequestWithCookie(tt.cookieKey, tt.cookieValue)
 		token, err := cc.Extract(r)
 
-		if authErrors.IsTokenNotFound(err) {
+		if err != nil {
 			logger.Warnf("[OK] ✖️ %v", err)
 			assert.ErrorIs(t, err, authErrors.ErrTokenNotFound)
 		} else {

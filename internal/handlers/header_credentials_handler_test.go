@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	authErrors "github.com/ydataai/authentication-service/internal/errors"
 	"github.com/ydataai/go-core/pkg/common/logging"
 )
@@ -76,7 +77,7 @@ func TestHeaderExtract(t *testing.T) {
 		r := mockRequestWithAuthorization(tt.token)
 		token, err := cc.Extract(r)
 
-		if authErrors.IsTokenNotFound(err) {
+		if err != nil {
 			logger.Warnf("[OK] ✖️ No Header or Token == '': %v", err)
 			assert.ErrorIs(t, err, authErrors.ErrTokenNotFound)
 		} else {

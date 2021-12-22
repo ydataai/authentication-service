@@ -150,7 +150,6 @@ func (osvc *OIDCService) Decode(tokenString string) (models.TokenInfo, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-
 		return osvc.configuration.HMACSecret, nil
 	})
 
@@ -177,7 +176,6 @@ func (osvc *OIDCService) Decode(tokenString string) (models.TokenInfo, error) {
 			return models.TokenInfo{}, authErrors.ErrTokenSignatureInvalid
 		}
 	}
-
 	return models.TokenInfo{}, fmt.Errorf("couldn't handle this token: %v", err)
 }
 
