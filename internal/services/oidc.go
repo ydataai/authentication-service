@@ -155,7 +155,7 @@ func (osvc *OIDCService) Decode(tokenString string) (models.TokenInfo, error) {
 	})
 
 	if token == nil {
-		return models.TokenInfo{}, errors.New("an unexpected error occurred while validating the JWT token")
+		return models.TokenInfo{}, authErrors.ErrTokenContainsInvalidSegments
 	}
 
 	if token.Valid {
@@ -168,11 +168,13 @@ func (osvc *OIDCService) Decode(tokenString string) (models.TokenInfo, error) {
 
 	if ve, ok := err.(*jwt.ValidationError); ok {
 		if ve.Errors&jwt.ValidationErrorMalformed != 0 {
-			return models.TokenInfo{}, errors.New("that's not even a token")
+			return models.TokenInfo{}, authErrors.ErrorTokenMalformed
 		} else if ve.Errors&jwt.ValidationErrorExpired != 0 {
 			return models.TokenInfo{}, authErrors.ErrTokenExpired
 		} else if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
 			return models.TokenInfo{}, authErrors.ErrTokenInactiveYet
+		} else if ve.Errors&jwt.ValidationErrorSignatureInvalid != 0 {
+			return models.TokenInfo{}, authErrors.ErrTokenSignatureInvalid
 		}
 	}
 

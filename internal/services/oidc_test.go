@@ -10,9 +10,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/ydataai/authentication-service/internal/clients"
 	"github.com/ydataai/authentication-service/internal/configurations"
+	authErrors "github.com/ydataai/authentication-service/internal/errors"
 	"github.com/ydataai/authentication-service/internal/models"
 	"github.com/ydataai/authentication-service/internal/storages"
 	"github.com/ydataai/go-core/pkg/common/logging"
@@ -183,9 +185,9 @@ func TestGetOIDCProviderURL(t *testing.T) {
 		oidcProviderURL, _ := osvc.GetOIDCProviderURL()
 
 		logger.Warnf("[OK] ✔️ URL: %v", oidcProviderURL)
-		require.Containsf(t, oidcProviderURL, addr, "oidcProviderURL must contain %s", addr)
-		require.Containsf(t, oidcProviderURL, tt.id, "oidcProviderURL must contain client_id=%s", tt.id)
-		require.Containsf(t, oidcProviderURL, tt.id, "oidcProviderURL must contain client_secret=%s", tt.id)
+		assert.Containsf(t, oidcProviderURL, addr, "oidcProviderURL must contain %s", addr)
+		assert.Containsf(t, oidcProviderURL, tt.id, "oidcProviderURL must contain client_id=%s", tt.id)
+		assert.Containsf(t, oidcProviderURL, tt.id, "oidcProviderURL must contain client_secret=%s", tt.id)
 	}
 }
 
@@ -242,12 +244,12 @@ func TestIsFlowSecure(t *testing.T) {
 
 		if tt.success {
 			logger.Warnf("[OK] ✔️ %#v | It's a secure flow", session)
-			require.NoError(t, err)
-			require.True(t, safe)
+			assert.NoError(t, err)
+			assert.True(t, safe)
 		} else {
 			logger.Warnf("[OK] ✖️ %v", err)
-			require.Error(t, err)
-			require.False(t, safe)
+			assert.Error(t, err)
+			assert.False(t, safe)
 		}
 	}
 }
@@ -271,9 +273,9 @@ func TestCreate(t *testing.T) {
 	token, err := osvc.Create(customClaims)
 
 	logger.Warnf("[OK] ✔️ Token created: %s", token.AccessToken)
-	require.NotEmpty(t, token)
-	require.NoError(t, err)
-	require.Conditionf(t, func() bool {
+	assert.NotEmpty(t, token)
+	assert.NoError(t, err)
+	assert.Conditionf(t, func() bool {
 		return len(token.AccessToken) > 90
 	}, "Access token must be more than 90 characters: lenght %d", len(token.AccessToken))
 }
@@ -285,45 +287,53 @@ func TestDecode(t *testing.T) {
 	oidcServiceConfiguration.LoadFromEnvVars()
 
 	testCases := []struct {
-		token     string
-		signature string
-		valid     bool
+		token       string
+		signature   string
+		errorReason error
 	}{
 		{
 			token:     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjIyNzA4NjA4ODksImlhdCI6MTY0MDE0MDg4OX0.oHSUa2b5lA5sb_BcNzGCVGuemy0LgQrLcGjW3aUxWgI",
 			signature: "developers@ydata.ai",
-			valid:     true,
 		},
 		{
-			token:     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjIyNzA4NjA4ODksImlhdCI6MTY0MDE0MDg4OX0.oHSUa2b5lA5sb_BcNzGCVGuemy0LgQrLcGjW3aUxWgI",
-			signature: "ydata.ai",
-			valid:     false,
+			token:       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjIyNzA4NjA4ODksImlhdCI6MTY0MDE0MDg4OX0.oHSUa2b5lA5sb_BcNzGCVGuemy0LgQrLcGjW3aUxWgI",
+			signature:   "ydata.ai",
+			errorReason: authErrors.ErrTokenSignatureInvalid,
 		},
 		{
-			// expired token
-			token:     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjE2NDAxNDE3MTAsImlhdCI6MTY0MDE0MTY1MH0.-7nPyZaDRd8ZMj54z_VPIF1a-M6qbA8l1Qyh-SWFlo0",
-			signature: "developers@ydata.ai",
-			valid:     false,
+			token:       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjE2NDAxNDE3MTAsImlhdCI6MTY0MDE0MTY1MH0.-7nPyZaDRd8ZMj54z_VPIF1a-M6qbA8l1Qyh-SWFlo0",
+			signature:   "developers@ydata.ai",
+			errorReason: authErrors.ErrTokenExpired,
 		},
 		{
-			token:     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
-			signature: "developers@ydata.ai",
-			valid:     false,
+			token:       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+			signature:   "developers@ydata.ai",
+			errorReason: authErrors.ErrTokenContainsInvalidSegments,
 		},
 		{
-			token:     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjIyNzA4NjA4ODksImlhdCI6MTY0MDE0MDg4OX0.oHSUa2b5lA5sb_BcNzGCVGuemy0LgQrLcGjW3aUxWgI",
-			signature: "",
-			valid:     false,
+			token:       "1233213123",
+			signature:   "",
+			errorReason: authErrors.ErrTokenContainsInvalidSegments,
 		},
 		{
-			token:     "",
-			signature: "developers@ydata.ai",
-			valid:     false,
+			token:       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjIyNzA4NjA4ODksImlhdCI6MTY0MDE0MDg4OX0.oHSUa2b5lA5sb_BcNzGCVGuemy0LgQrLcGjW3aUxWgI",
+			signature:   "",
+			errorReason: authErrors.ErrTokenSignatureInvalid,
 		},
 		{
-			token:     "",
-			signature: "",
-			valid:     false,
+			token:       "",
+			signature:   "developers@ydata.ai",
+			errorReason: authErrors.ErrTokenContainsInvalidSegments,
+		},
+		{
+			token:       "",
+			signature:   "",
+			errorReason: authErrors.ErrTokenContainsInvalidSegments,
+		},
+		{
+			token:       "JhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjIyNzA4NjA4ODksImlhdCI6MTY0MDE0MDg4OX0.oHSUa2b5lA5sb_BcNzGCVGuemy0LgQrLcGjW3aUxWgI",
+			signature:   "developers@ydata.ai",
+			errorReason: authErrors.ErrorTokenMalformed,
 		},
 	}
 
@@ -332,14 +342,14 @@ func TestDecode(t *testing.T) {
 		osvc := NewOIDCService(logger, oidcServiceConfiguration, oidcClient, sessionStorage)
 
 		decodedToken, err := osvc.Decode(tt.token)
-		if tt.valid {
+		if tt.errorReason == nil {
 			logger.Warnf("[OK] ✔️ %#v", decodedToken)
-			require.NotEmpty(t, decodedToken)
-			require.NoError(t, err)
+			assert.NotEmpty(t, decodedToken)
+			assert.NoError(t, err)
 		} else {
 			logger.Warnf("[OK] ✖️ %v", err)
-			require.Empty(t, decodedToken)
-			require.Error(t, err)
+			assert.Empty(t, decodedToken)
+			assert.ErrorIs(t, err, tt.errorReason)
 		}
 	}
 }
