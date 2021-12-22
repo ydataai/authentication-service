@@ -45,7 +45,7 @@ func setupLogger() logging.Logger {
 }
 
 // setupOIDCService is a helper, because it's necessary to call many times.
-func setupOIDCService() (clients.OIDCClient,
+func setupOIDCService() (clients.OIDCClientInterface,
 	configurations.OIDCServiceConfiguration,
 	*storages.SessionStorage) {
 

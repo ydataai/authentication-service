@@ -22,7 +22,7 @@ import (
 // OIDCService defines the OIDC Service struct.
 type OIDCService struct {
 	configuration  configurations.OIDCServiceConfiguration
-	client         clients.OIDCClient
+	client         clients.OIDCClientInterface
 	sessionStorage *storages.SessionStorage
 	logger         logging.Logger
 }
@@ -40,7 +40,7 @@ type OIDCServiceInterface interface {
 // NewOIDCService creates a new OIDC Service struct.
 func NewOIDCService(logger logging.Logger,
 	configuration configurations.OIDCServiceConfiguration,
-	client clients.OIDCClient,
+	client clients.OIDCClientInterface,
 	sessionStorage *storages.SessionStorage) OIDCServiceInterface {
 	return &OIDCService{
 		configuration:  configuration,
@@ -61,10 +61,7 @@ func (osvc *OIDCService) GetOIDCProviderURL() (string, error) {
 
 	osvc.sessionStorage.StoreSession(session)
 
-	return osvc.client.OAuth2Config.AuthCodeURL(
-		session.State,
-		oidc.Nonce(session.Nonce),
-	), nil
+	return osvc.client.AuthCodeURL(session.State, session.Nonce), nil
 }
 
 // Claims creates claims tokens based on the auth code returned from the OIDC provider.
@@ -73,7 +70,7 @@ func (osvc *OIDCService) Claims(ctx context.Context, code string) (models.Tokens
 		return models.Tokens{}, errors.New("unable to authenticate without code returned from OIDC Provider")
 	}
 
-	oauth2Token, err := osvc.client.OAuth2Config.Exchange(ctx, code)
+	oauth2Token, err := osvc.client.Exchange(ctx, code)
 	if err != nil {
 		return models.Tokens{}, fmt.Errorf("failed to exchange token. Error: %v", err)
 	}
@@ -198,7 +195,7 @@ func (osvc *OIDCService) validateIDToken(ctx context.Context, oauth2Token *oauth
 	if !ok {
 		return oidc.IDToken{}, errors.New("no id_token field in oauth2 token")
 	}
-	idToken, err := osvc.client.Verifier.Verify(ctx, rawIDToken)
+	idToken, err := osvc.client.Verify(ctx, rawIDToken)
 	if err != nil {
 		return oidc.IDToken{}, fmt.Errorf("failed to verify ID Token. Error: %v", err)
 	}
