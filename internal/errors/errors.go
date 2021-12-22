@@ -3,46 +3,26 @@ package errors
 import "errors"
 
 var (
-	// ErrTokenNotFound creates a new NotFound error.
-	ErrTokenNotFound = errors.New("token not found")
-	// ErrTokenExpired creates a new ErrTokenExpired error.
-	ErrTokenExpired = errors.New("token expired")
-	// ErrTokenInactiveYet creates a new ErrTokenInactiveYet error.
-	ErrTokenInactiveYet = errors.New("token not active yet")
-	// ErrTokenSignatureInvalid creates a new ErrTokenSignatureInvalid error.
-	ErrTokenSignatureInvalid = errors.New("signature invalid")
-	// ErrTokenContainsInvalidSegments creates a new ErrTokenContainsInvalidSegments error.
-	ErrTokenContainsInvalidSegments = errors.New("token contains an invalid number of segments")
+	// ErrorTokenNotFound creates a new ErrorTokenNotFound error.
+	ErrorTokenNotFound = errors.New("token not found")
+	// ErrorTokenExpired creates a new ErrorTokenExpired error.
+	ErrorTokenExpired = errors.New("token expired")
+	// ErrorTokenInactive creates a new ErrorTokenInactive error.
+	ErrorTokenInactive = errors.New("token not active yet")
+	// ErrorTokenSignatureInvalid creates a new ErrorTokenSignatureInvalid error.
+	ErrorTokenSignatureInvalid = errors.New("signature invalid")
+	// ErrorTokenContainsInvalidSegments creates a new ErrorTokenContainsInvalidSegments error.
+	ErrorTokenContainsInvalidSegments = errors.New("token contains an invalid number of segments")
 	// ErrorTokenMalformed creates a new ErrorTokenMalformed error.
 	ErrorTokenMalformed = errors.New("token malformed")
 )
 
-// IsTokenNotFound returns true if the specified error is an ErrTokenNotFound.
+// IsTokenNotFound returns true if the specified error is an ErrorTokenNotFound.
 func IsTokenNotFound(err error) bool {
-	return err == ErrTokenNotFound
+	return err == ErrorTokenNotFound
 }
 
-// IsTokenExpired returns true if the specified error is an ErrTokenExpired.
+// IsTokenExpired returns true if the specified error is an ErrorTokenExpired.
 func IsTokenExpired(err error) bool {
-	return err == ErrTokenExpired
-}
-
-// IsTokenInactiveYet returns true if the specified error is an ErrTokenInactiveYet.
-func IsTokenInactiveYet(err error) bool {
-	return err == ErrTokenInactiveYet
-}
-
-// IsErrTokenSignatureInvalid returns true if the specified error is an ErrTokenSignatureInvalid.
-func IsErrTokenSignatureInvalid(err error) bool {
-	return err == ErrTokenSignatureInvalid
-}
-
-// IsErrTokenContainsInvalidSegments returns true if the specified error is an ErrTokenContainsInvalidSegments.
-func IsErrTokenContainsInvalidSegments(err error) bool {
-	return err == ErrTokenContainsInvalidSegments
-}
-
-// IsErrorTokenMalformed returns true if the specified error is an ErrorTokenMalformed.
-func IsErrorTokenMalformed(err error) bool {
-	return err == ErrorTokenMalformed
+	return err == ErrorTokenExpired
 }

@@ -154,7 +154,7 @@ func (osvc *OIDCService) Decode(tokenString string) (models.TokenInfo, error) {
 	})
 
 	if token == nil {
-		return models.TokenInfo{}, authErrors.ErrTokenContainsInvalidSegments
+		return models.TokenInfo{}, authErrors.ErrorTokenContainsInvalidSegments
 	}
 
 	if token.Valid {
@@ -169,11 +169,11 @@ func (osvc *OIDCService) Decode(tokenString string) (models.TokenInfo, error) {
 		if ve.Errors&jwt.ValidationErrorMalformed != 0 {
 			return models.TokenInfo{}, authErrors.ErrorTokenMalformed
 		} else if ve.Errors&jwt.ValidationErrorExpired != 0 {
-			return models.TokenInfo{}, authErrors.ErrTokenExpired
+			return models.TokenInfo{}, authErrors.ErrorTokenExpired
 		} else if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
-			return models.TokenInfo{}, authErrors.ErrTokenInactiveYet
+			return models.TokenInfo{}, authErrors.ErrorTokenInactive
 		} else if ve.Errors&jwt.ValidationErrorSignatureInvalid != 0 {
-			return models.TokenInfo{}, authErrors.ErrTokenSignatureInvalid
+			return models.TokenInfo{}, authErrors.ErrorTokenSignatureInvalid
 		}
 	}
 	return models.TokenInfo{}, fmt.Errorf("couldn't handle this token: %v", err)

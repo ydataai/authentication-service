@@ -159,7 +159,7 @@ func (rc RESTController) getCredentials(r *http.Request) (string, error) {
 		return token, nil
 	}
 	// back to start OIDC flow.
-	return "", authErrors.ErrTokenNotFound
+	return "", authErrors.ErrorTokenNotFound
 }
 
 func (rc RESTController) setSessionCookie(w http.ResponseWriter, r *http.Request, name, value string) {

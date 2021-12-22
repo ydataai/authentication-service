@@ -298,37 +298,37 @@ func TestDecode(t *testing.T) {
 		{
 			token:       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjIyNzA4NjA4ODksImlhdCI6MTY0MDE0MDg4OX0.oHSUa2b5lA5sb_BcNzGCVGuemy0LgQrLcGjW3aUxWgI",
 			signature:   "ydata.ai",
-			errorReason: authErrors.ErrTokenSignatureInvalid,
+			errorReason: authErrors.ErrorTokenSignatureInvalid,
 		},
 		{
 			token:       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjE2NDAxNDE3MTAsImlhdCI6MTY0MDE0MTY1MH0.-7nPyZaDRd8ZMj54z_VPIF1a-M6qbA8l1Qyh-SWFlo0",
 			signature:   "developers@ydata.ai",
-			errorReason: authErrors.ErrTokenExpired,
+			errorReason: authErrors.ErrorTokenExpired,
 		},
 		{
 			token:       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
 			signature:   "developers@ydata.ai",
-			errorReason: authErrors.ErrTokenContainsInvalidSegments,
+			errorReason: authErrors.ErrorTokenContainsInvalidSegments,
 		},
 		{
 			token:       "1233213123",
 			signature:   "",
-			errorReason: authErrors.ErrTokenContainsInvalidSegments,
+			errorReason: authErrors.ErrorTokenContainsInvalidSegments,
 		},
 		{
 			token:       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjIyNzA4NjA4ODksImlhdCI6MTY0MDE0MDg4OX0.oHSUa2b5lA5sb_BcNzGCVGuemy0LgQrLcGjW3aUxWgI",
 			signature:   "",
-			errorReason: authErrors.ErrTokenSignatureInvalid,
+			errorReason: authErrors.ErrorTokenSignatureInvalid,
 		},
 		{
 			token:       "",
 			signature:   "developers@ydata.ai",
-			errorReason: authErrors.ErrTokenContainsInvalidSegments,
+			errorReason: authErrors.ErrorTokenContainsInvalidSegments,
 		},
 		{
 			token:       "",
 			signature:   "",
-			errorReason: authErrors.ErrTokenContainsInvalidSegments,
+			errorReason: authErrors.ErrorTokenContainsInvalidSegments,
 		},
 		{
 			token:       "JhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjIyNzA4NjA4ODksImlhdCI6MTY0MDE0MDg4OX0.oHSUa2b5lA5sb_BcNzGCVGuemy0LgQrLcGjW3aUxWgI",

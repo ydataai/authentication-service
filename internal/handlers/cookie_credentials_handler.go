@@ -24,7 +24,7 @@ func (ac *CookieCredentialsHandler) Extract(r *http.Request) (string, error) {
 	token, err := r.Cookie("access_token")
 	if err != nil {
 		ac.logger.Infof("%s cookie", notFoundMsg)
-		return "", authErrors.ErrTokenNotFound
+		return "", authErrors.ErrorTokenNotFound
 	}
 
 	ac.logger.Infof("%s cookie", foundMsg)

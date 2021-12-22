@@ -34,7 +34,7 @@ func (ah *HeaderCredentialsHandler) Extract(r *http.Request) (string, error) {
 
 	if token == "" {
 		ah.logger.Infof("%s authorization header", notFoundMsg)
-		return "", authErrors.ErrTokenNotFound
+		return "", authErrors.ErrorTokenNotFound
 	}
 
 	// token found in authorization header.
