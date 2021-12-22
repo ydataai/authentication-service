@@ -5,9 +5,9 @@ import (
 )
 
 const (
-	foundMsg        = "[✔️] token found in"
-	notFoundMsg     = "[✖️] token not found in"
-	invalidTokenMsg = "[✖️] invalid token in"
+	foundMsg        = "✔️ token found in"
+	notFoundMsg     = "✖️ token not found in"
+	invalidTokenMsg = "✖️ invalid token in"
 )
 
 // CredentialsHandler defines an interface for authentications.

@@ -77,10 +77,10 @@ func TestHeaderExtract(t *testing.T) {
 		token, err := cc.Extract(r)
 
 		if authErrors.IsTokenNotFound(err) {
-			logger.Warnf("No Header or Token == '': %v", err)
+			logger.Warnf("[OK] ✖️ No Header or Token == '': %v", err)
 			assert.ErrorIs(t, err, authErrors.ErrTokenNotFound)
 		} else {
-			logger.Warnf("%v Authorization header", foundMsg)
+			logger.Warnf("[OK] %v Authorization header", foundMsg)
 			assert.Equal(t, tt.expected, token)
 		}
 	}

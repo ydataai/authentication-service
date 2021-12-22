@@ -57,10 +57,10 @@ func TestCookieExtract(t *testing.T) {
 		token, err := cc.Extract(r)
 
 		if authErrors.IsTokenNotFound(err) {
-			logger.Warnf("%v", err)
+			logger.Warnf("[OK] ✖️ %v", err)
 			assert.ErrorIs(t, err, authErrors.ErrTokenNotFound)
 		} else {
-			logger.Warnf("%v in cookie", foundMsg)
+			logger.Warnf("[OK] %s cookie", foundMsg)
 			assert.Equal(t, tt.cookieValue, token)
 		}
 	}

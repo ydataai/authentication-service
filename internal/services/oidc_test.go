@@ -182,7 +182,7 @@ func TestGetOIDCProviderURL(t *testing.T) {
 
 		oidcProviderURL, _ := osvc.GetOIDCProviderURL()
 
-		logger.Warnf("[OK] URL: %v", oidcProviderURL)
+		logger.Warnf("[OK] ✔️ URL: %v", oidcProviderURL)
 		require.Containsf(t, oidcProviderURL, addr, "oidcProviderURL must contain %s", addr)
 		require.Containsf(t, oidcProviderURL, tt.id, "oidcProviderURL must contain client_id=%s", tt.id)
 		require.Containsf(t, oidcProviderURL, tt.id, "oidcProviderURL must contain client_secret=%s", tt.id)
@@ -241,11 +241,11 @@ func TestIsFlowSecure(t *testing.T) {
 		safe, err := osvc.IsFlowSecure(tt.state, token)
 
 		if tt.success {
-			logger.Warnf("[OK] %#v | It's a secure flow", session)
+			logger.Warnf("[OK] ✔️ %#v | It's a secure flow", session)
 			require.NoError(t, err)
 			require.True(t, safe)
 		} else {
-			logger.Warnf("[OK] %v", err)
+			logger.Warnf("[OK] ✖️ %v", err)
 			require.Error(t, err)
 			require.False(t, safe)
 		}
@@ -270,7 +270,7 @@ func TestCreate(t *testing.T) {
 
 	token, err := osvc.Create(customClaims)
 
-	logger.Warnf("[OK] Token created: %s", token.AccessToken)
+	logger.Warnf("[OK] ✔️ Token created: %s", token.AccessToken)
 	require.NotEmpty(t, token)
 	require.NoError(t, err)
 	require.Conditionf(t, func() bool {
@@ -333,11 +333,11 @@ func TestDecode(t *testing.T) {
 
 		decodedToken, err := osvc.Decode(tt.token)
 		if tt.valid {
-			logger.Warnf("[OK] %#v", decodedToken)
+			logger.Warnf("[OK] ✔️ %#v", decodedToken)
 			require.NotEmpty(t, decodedToken)
 			require.NoError(t, err)
 		} else {
-			logger.Warnf("[OK] %v", err)
+			logger.Warnf("[OK] ✖️ %v", err)
 			require.Empty(t, decodedToken)
 			require.Error(t, err)
 		}
