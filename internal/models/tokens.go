@@ -34,6 +34,6 @@ type CustomClaims struct {
 
 // TokenInfo defines a TokenInfo struct.
 type TokenInfo struct {
-	UID  string `json:"userid,omitempty"`
-	Name string `json:"name,omitempty"`
+	UID  string `json:"userid"`
+	Name string `json:"name"`
 }

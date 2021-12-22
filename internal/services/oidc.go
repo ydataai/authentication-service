@@ -161,7 +161,7 @@ func (osvc *OIDCService) Decode(tokenString string) (models.TokenInfo, error) {
 	if token.Valid {
 		claims := token.Claims.(jwt.MapClaims)
 		return models.TokenInfo{
-			UID:  fmt.Sprintf("%s%s", osvc.configuration.UserIDPrefix, claims[osvc.configuration.UserIDClaim].(string)),
+			UID:  claims[osvc.configuration.UserIDClaim].(string),
 			Name: claims[osvc.configuration.UserNameClaim].(string),
 		}, nil
 	}
@@ -169,14 +169,11 @@ func (osvc *OIDCService) Decode(tokenString string) (models.TokenInfo, error) {
 	if ve, ok := err.(*jwt.ValidationError); ok {
 		if ve.Errors&jwt.ValidationErrorMalformed != 0 {
 			return models.TokenInfo{}, errors.New("that's not even a token")
-
 		} else if ve.Errors&jwt.ValidationErrorExpired != 0 {
 			return models.TokenInfo{}, authErrors.ErrTokenExpired
 		} else if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
 			return models.TokenInfo{}, authErrors.ErrTokenInactiveYet
 		}
-
-		return models.TokenInfo{}, fmt.Errorf("couldn't handle this token: %v", err)
 	}
 
 	return models.TokenInfo{}, fmt.Errorf("couldn't handle this token: %v", err)
