@@ -26,10 +26,10 @@ import (
 )
 
 const (
-	port           = 9999
-	addr           = "http://localhost:9999"
-	fake_client_id = "fakeID"
-	redirect       = "http://localhost:5555/auth/oidc/callback"
+	port         = 9999
+	addr         = "http://localhost:9999"
+	fakeClientID = "fakeID"
+	redirect     = "http://localhost:5555/auth/oidc/callback"
 )
 
 // Starting Fake OIDC Provider.
@@ -68,7 +68,7 @@ func NewMockOIDCClient() clients.OIDCClient {
 	provider, _ := oidc.NewProvider(ctx, addr)
 
 	oauth2config := &oauth2.Config{
-		ClientID:     fake_client_id,
+		ClientID:     fakeClientID,
 		ClientSecret: "fakeSecret",
 		Endpoint:     provider.Endpoint(),
 		RedirectURL:  redirect,
@@ -81,7 +81,7 @@ func NewMockOIDCClient() clients.OIDCClient {
 	}
 }
 
-func (oc *MockOIDCClient) StartSetup() {}
+func (m *MockOIDCClient) StartSetup() {}
 
 func (m *MockOIDCClient) AuthCodeURL(state, nonce string) string {
 	return m.oauth2config.AuthCodeURL(state, oidc.Nonce(nonce))
@@ -192,13 +192,13 @@ func TestGetOIDCProviderURL(t *testing.T) {
 
 	oidcProviderURL, _ := osvc.GetOIDCProviderURL()
 
-	client_id := fmt.Sprintf("client_id=%s", fake_client_id)
-	redirect_uri := fmt.Sprintf("redirect_uri=%s", url.QueryEscape(redirect))
+	clientID := fmt.Sprintf("client_id=%s", fakeClientID)
+	redirectURI := fmt.Sprintf("redirect_uri=%s", url.QueryEscape(redirect))
 
 	logger.Warnf("[OK] ✔️ URL: %v", oidcProviderURL)
 	assert.Containsf(t, oidcProviderURL, addr, "oidcProviderURL must contain %s", addr)
-	assert.Containsf(t, oidcProviderURL, client_id, "oidcProviderURL must contain %s", client_id)
-	assert.Containsf(t, oidcProviderURL, redirect_uri, "oidcProviderURL must contain %s", redirect_uri)
+	assert.Containsf(t, oidcProviderURL, clientID, "oidcProviderURL must contain %s", clientID)
+	assert.Containsf(t, oidcProviderURL, redirectURI, "oidcProviderURL must contain %s", redirectURI)
 }
 
 func TestIsFlowSecure(t *testing.T) {
