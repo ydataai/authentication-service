@@ -3,14 +3,18 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"testing"
 	"text/template"
 	"time"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/oauth2"
 
 	"github.com/ydataai/authentication-service/internal/clients"
 	"github.com/ydataai/authentication-service/internal/configurations"
@@ -22,22 +26,23 @@ import (
 )
 
 const (
-	port = 9999
-	addr = "http://localhost:9999"
+	port           = 9999
+	addr           = "http://localhost:9999"
+	fake_client_id = "fakeID"
+	redirect       = "http://localhost:5555/auth/oidc/callback"
 )
 
 // Starting Fake OIDC Provider.
 func init() {
-	logger := setupLogger()
 	serverConfiguration := server.HTTPServerConfiguration{}
 	serverConfiguration.Port = port
 
 	gin.SetMode(gin.ReleaseMode)
-	httpServer := server.NewServer(logger, serverConfiguration)
+	httpServer := server.NewServer(setupLogger(), serverConfiguration)
 	mockOIDCProvider(httpServer, addr)
 }
 
-// setupLogger is a helper, because it's necessary to call many times.
+// setupLogger is a helper.
 func setupLogger() logging.Logger {
 	loggerConfig := logging.LoggerConfiguration{}
 	loggerConfig.Level = "warn"
@@ -45,32 +50,63 @@ func setupLogger() logging.Logger {
 }
 
 // setupOIDCService is a helper, because it's necessary to call many times.
-func setupOIDCService() (clients.OIDCClientInterface,
-	configurations.OIDCServiceConfiguration,
-	*storages.SessionStorage) {
-
-	logger := setupLogger()
+func setupOIDCService() (clients.OIDCClient, configurations.OIDCServiceConfiguration, *storages.SessionStorage, logging.Logger) {
 	oidcServiceConfiguration := configurations.OIDCServiceConfiguration{}
-
 	sessionStorage := storages.NewSessionStorage()
-
-	oidcClientConfiguration := mockOIDCClientConfiguration("fakeID", "fakeSecret", addr, "")
-	oidcClient := clients.NewOIDCClient(logger, oidcClientConfiguration)
-
-	return oidcClient, oidcServiceConfiguration, sessionStorage
+	mockOIDCClient := NewMockOIDCClient()
+	return mockOIDCClient, oidcServiceConfiguration, sessionStorage, setupLogger()
 }
 
-// mockOIDCClientConfiguration creates a fake config for OIDC client.
-func mockOIDCClientConfiguration(id, secret, pURL, rURL string) configurations.OIDCClientConfiguration {
-	oidconfig := configurations.OIDCClientConfiguration{}
+type MockOIDCClient struct {
+	oauth2config *oauth2.Config
+	provider     *oidc.Provider
+}
 
-	os.Setenv("CLIENT_ID", id)
-	os.Setenv("CLIENT_SECRET", secret)
-	os.Setenv("OIDC_PROVIDER_URL", pURL)
-	os.Setenv("OIDC_REDIRECT_URL", rURL)
-	oidconfig.LoadFromEnvVars()
+func NewMockOIDCClient() clients.OIDCClient {
+	ctx := context.Background()
 
-	return oidconfig
+	provider, _ := oidc.NewProvider(ctx, addr)
+
+	oauth2config := &oauth2.Config{
+		ClientID:     fake_client_id,
+		ClientSecret: "fakeSecret",
+		Endpoint:     provider.Endpoint(),
+		RedirectURL:  redirect,
+		Scopes:       []string{"openid", "profile", "email"},
+	}
+
+	return &MockOIDCClient{
+		oauth2config: oauth2config,
+		provider:     provider,
+	}
+}
+
+func (oc *MockOIDCClient) StartSetup() {}
+
+func (m *MockOIDCClient) AuthCodeURL(state, nonce string) string {
+	return m.oauth2config.AuthCodeURL(state, oidc.Nonce(nonce))
+}
+
+func (m MockOIDCClient) Decode(ctx context.Context, rawIDToken string) (models.Tokens, error) {
+	return models.Tokens{
+		CustomClaims: models.CustomClaims{
+			Name:        "Azory",
+			Email:       "developers@ydata.ai",
+			AccessToken: rawIDToken,
+		},
+	}, nil
+}
+
+// Exchange is an oidc lib proxy that converts an authorization code into a token.
+// for more information, see: https://pkg.go.dev/golang.org/x/oauth2#Config.Exchange
+func (m MockOIDCClient) Exchange(ctx context.Context, code string) (models.OAuth2Token, error) {
+	return models.OAuth2Token{
+		AccessToken:  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjIyNzA4NjA4ODksImlhdCI6MTY0MDE0MDg4OSwibm9uY2UiOiJBQUJCQ0NERCJ9.fK22NqBw2Cn61_ZwHFZicCjK6t1pURjXcn1jhbi2f3A",
+		TokenType:    "bearer",
+		RefreshToken: "",
+		Expiry:       time.Unix(2270860889, 0),
+		RawIDToken:   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQXpvcnkiLCJlbWFpbCI6ImRldmVsb3BlcnNAeWRhdGEuYWkiLCJleHAiOjIyNzA4NjA4ODksImlhdCI6MTY0MDE0MDg4OSwibm9uY2UiOiJBQUJCQ0NERCJ9.fK22NqBw2Cn61_ZwHFZicCjK6t1pURjXcn1jhbi2f3A",
+	}, nil
 }
 
 // mockOIDCProvider creates fake OIDC provider.
@@ -150,53 +186,25 @@ func mockOIDCProvider(httpServer *server.Server, address string) {
 }
 
 func TestGetOIDCProviderURL(t *testing.T) {
-	logger := setupLogger()
-	_, oidcServiceConfiguration, sessionStorage := setupOIDCService()
+	mockOIDCClient, oidcServiceConfiguration, sessionStorage, logger := setupOIDCService()
 
-	testCases := []struct {
-		id     string
-		secret string
-		rURL   string
-	}{
-		{
-			id:     "fakeID",
-			secret: "fakeSecret",
-			rURL:   "http://localhost:5555/auth/oidc/callback",
-		},
-		{
-			id:     "azory",
-			secret: "azorySecret",
-			rURL:   "http://localhost:5555/callback",
-		},
-		{
-			id:     "fakeID-321321-421321-32131",
-			secret: "fakeSecret-312421-312321-41232",
-			rURL:   "http://localhost:9999/auth/callback",
-		},
-	}
+	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage)
 
-	for _, tt := range testCases {
-		oidcClientConfiguration := mockOIDCClientConfiguration(tt.id, tt.secret, addr, tt.rURL)
-		oidcClient := clients.NewOIDCClient(logger, oidcClientConfiguration)
-		oidcClient.StartSetup()
+	oidcProviderURL, _ := osvc.GetOIDCProviderURL()
 
-		osvc := NewOIDCService(logger, oidcServiceConfiguration, oidcClient, sessionStorage)
+	client_id := fmt.Sprintf("client_id=%s", fake_client_id)
+	redirect_uri := fmt.Sprintf("redirect_uri=%s", url.QueryEscape(redirect))
 
-		oidcProviderURL, _ := osvc.GetOIDCProviderURL()
-
-		logger.Warnf("[OK] ✔️ URL: %v", oidcProviderURL)
-		assert.Containsf(t, oidcProviderURL, addr, "oidcProviderURL must contain %s", addr)
-		assert.Containsf(t, oidcProviderURL, tt.id, "oidcProviderURL must contain client_id=%s", tt.id)
-		assert.Containsf(t, oidcProviderURL, tt.id, "oidcProviderURL must contain client_secret=%s", tt.id)
-	}
+	logger.Warnf("[OK] ✔️ URL: %v", oidcProviderURL)
+	assert.Containsf(t, oidcProviderURL, addr, "oidcProviderURL must contain %s", addr)
+	assert.Containsf(t, oidcProviderURL, client_id, "oidcProviderURL must contain %s", client_id)
+	assert.Containsf(t, oidcProviderURL, redirect_uri, "oidcProviderURL must contain %s", redirect_uri)
 }
 
 func TestIsFlowSecure(t *testing.T) {
-	logger := setupLogger()
-	oidcClient, oidcServiceConfiguration, sessionStorage := setupOIDCService()
-	oidcClient.StartSetup()
+	mockOIDCClient, oidcServiceConfiguration, sessionStorage, logger := setupOIDCService()
 
-	osvc := NewOIDCService(logger, oidcServiceConfiguration, oidcClient, sessionStorage)
+	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage)
 
 	// static Token to be tested
 	idToken := json.RawMessage(`
@@ -255,17 +263,15 @@ func TestIsFlowSecure(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
-	logger := setupLogger()
-	oidcClient, oidcServiceConfiguration, sessionStorage := setupOIDCService()
-	oidcClient.StartSetup()
+	mockOIDCClient, oidcServiceConfiguration, sessionStorage, logger := setupOIDCService()
 	// custom config
 	os.Setenv("HMAC_SECRET", "developers@ydata.ai")
 	oidcServiceConfiguration.LoadFromEnvVars()
 	oidcServiceConfiguration.UserJWTExpires = time.Duration(time.Minute)
 
-	osvc := NewOIDCService(logger, oidcServiceConfiguration, oidcClient, sessionStorage)
+	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage)
 
-	customClaims := &models.CustomClaims{
+	customClaims := models.CustomClaims{
 		Name:  "Azory",
 		Email: "developers@ydata.ai",
 	}
@@ -281,9 +287,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestDecode(t *testing.T) {
-	logger := setupLogger()
-	oidcClient, oidcServiceConfiguration, sessionStorage := setupOIDCService()
-	oidcClient.StartSetup()
+	mockOIDCClient, oidcServiceConfiguration, sessionStorage, logger := setupOIDCService()
 	oidcServiceConfiguration.LoadFromEnvVars()
 
 	testCases := []struct {
@@ -339,7 +343,7 @@ func TestDecode(t *testing.T) {
 
 	for _, tt := range testCases {
 		oidcServiceConfiguration.HMACSecret = []byte(tt.signature)
-		osvc := NewOIDCService(logger, oidcServiceConfiguration, oidcClient, sessionStorage)
+		osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage)
 
 		decodedToken, err := osvc.Decode(tt.token)
 		if tt.errorReason == nil {
@@ -350,6 +354,35 @@ func TestDecode(t *testing.T) {
 			logger.Warnf("[OK] ✖️ %v", err)
 			assert.Empty(t, decodedToken)
 			assert.ErrorIs(t, err, tt.errorReason)
+		}
+	}
+}
+
+func TestClaims(t *testing.T) {
+	ctx := context.Background()
+	mockOIDCClient, oidcServiceConfiguration, sessionStorage, logger := setupOIDCService()
+	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage)
+
+	testCases := []struct {
+		code string
+	}{
+		{
+			code: "AABBCCDD",
+		},
+		{
+			code: "",
+		},
+	}
+
+	for _, tt := range testCases {
+		tokens, err := osvc.Claims(ctx, tt.code)
+
+		if tt.code == "" {
+			logger.Warnf("[OK] ✖️ %v", err)
+			assert.Error(t, err)
+		} else {
+			logger.Warnf("[OK] ✔️ %#v", tokens)
+			assert.NotNil(t, tokens)
 		}
 	}
 }

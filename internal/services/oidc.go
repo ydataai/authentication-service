@@ -7,9 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v4"
-	"golang.org/x/oauth2"
 
 	"github.com/ydataai/authentication-service/internal/clients"
 	"github.com/ydataai/authentication-service/internal/configurations"
@@ -19,30 +17,30 @@ import (
 	"github.com/ydataai/go-core/pkg/common/logging"
 )
 
-// OIDCService defines the OIDC Service struct.
-type OIDCService struct {
+// OAuth2OIDCService defines the OAuth2 OIDC Service struct.
+type OAuth2OIDCService struct {
 	configuration  configurations.OIDCServiceConfiguration
-	client         clients.OIDCClientInterface
+	client         clients.OIDCClient
 	sessionStorage *storages.SessionStorage
 	logger         logging.Logger
 }
 
-// OIDCServiceInterface defines a interface for OIDC Service.
-type OIDCServiceInterface interface {
+// OIDCService defines a interface for OIDC Service.
+type OIDCService interface {
 	GetOIDCProviderURL() (string, error)
 	Claims(ctx context.Context, code string) (models.Tokens, error)
 	IsFlowSecure(state string, token models.Tokens) (bool, error)
 
-	Create(cc *models.CustomClaims) (models.CustomClaims, error)
-	Decode(tokenString string) (models.TokenInfo, error)
+	Create(cc models.CustomClaims) (models.CustomClaims, error)
+	Decode(tokenString string) (models.UserInfo, error)
 }
 
-// NewOIDCService creates a new OIDC Service struct.
-func NewOIDCService(logger logging.Logger,
+// NewOAuth2OIDCService creates a new OAuth2 OIDC Service struct.
+func NewOAuth2OIDCService(logger logging.Logger,
 	configuration configurations.OIDCServiceConfiguration,
-	client clients.OIDCClientInterface,
-	sessionStorage *storages.SessionStorage) OIDCServiceInterface {
-	return &OIDCService{
+	client clients.OIDCClient,
+	sessionStorage *storages.SessionStorage) OIDCService {
+	return &OAuth2OIDCService{
 		configuration:  configuration,
 		client:         client,
 		sessionStorage: sessionStorage,
@@ -51,7 +49,7 @@ func NewOIDCService(logger logging.Logger,
 }
 
 // GetOIDCProviderURL gets OIDC provider URL from the OAuth2 configuration.
-func (osvc *OIDCService) GetOIDCProviderURL() (string, error) {
+func (osvc *OAuth2OIDCService) GetOIDCProviderURL() (string, error) {
 	// Creates a temporary session with state and nonce to validate
 	// when there is callback from the OIDC Provider.
 	session, err := models.CreateSession()
@@ -65,7 +63,7 @@ func (osvc *OIDCService) GetOIDCProviderURL() (string, error) {
 }
 
 // Claims creates claims tokens based on the auth code returned from the OIDC provider.
-func (osvc *OIDCService) Claims(ctx context.Context, code string) (models.Tokens, error) {
+func (osvc *OAuth2OIDCService) Claims(ctx context.Context, code string) (models.Tokens, error) {
 	if code == "" {
 		return models.Tokens{}, errors.New("unable to authenticate without code returned from OIDC Provider")
 	}
@@ -74,30 +72,18 @@ func (osvc *OIDCService) Claims(ctx context.Context, code string) (models.Tokens
 	if err != nil {
 		return models.Tokens{}, fmt.Errorf("failed to exchange token. Error: %v", err)
 	}
-	idToken, err := osvc.validateIDToken(ctx, oauth2Token)
+
+	tokens, err := osvc.client.Decode(ctx, oauth2Token.RawIDToken)
 	if err != nil {
-		return models.Tokens{}, err
+		return models.Tokens{}, fmt.Errorf("failed to verify ID Token. Error: %v", err)
 	}
+	osvc.logger.Info("✔️ Login validated with ID token")
 
-	idTokenClaims := new(json.RawMessage)
-	if err := idToken.Claims(&idTokenClaims); err != nil {
-		return models.Tokens{}, fmt.Errorf("an error occurred while validating ID Token. Error: %v", err)
-	}
-
-	cc := models.CustomClaims{}
-	if err := idToken.Claims(&cc); err != nil {
-		return models.Tokens{}, fmt.Errorf("an unexpected error has occurred. Error: %v", err)
-	}
-
-	return models.Tokens{
-		OAuth2Token:   oauth2Token,
-		IDTokenClaims: idTokenClaims,
-		CustomClaims:  cc,
-	}, nil
+	return tokens, nil
 }
 
 // IsFlowSecure ensures the flow is secure and then, returns a JWT token.
-func (osvc *OIDCService) IsFlowSecure(state string, token models.Tokens) (bool, error) {
+func (osvc *OAuth2OIDCService) IsFlowSecure(state string, token models.Tokens) (bool, error) {
 	if state == "" {
 		return false, errors.New("unable to follow a secure flow without the state returned from the OIDC Provider")
 	}
@@ -119,7 +105,7 @@ func (osvc *OIDCService) IsFlowSecure(state string, token models.Tokens) (bool, 
 }
 
 // Create a new JWT token based on Custom Claims models.
-func (osvc *OIDCService) Create(cc *models.CustomClaims) (models.CustomClaims, error) {
+func (osvc *OAuth2OIDCService) Create(cc models.CustomClaims) (models.CustomClaims, error) {
 	var err error
 
 	customClaims := models.CustomClaims{
@@ -141,7 +127,7 @@ func (osvc *OIDCService) Create(cc *models.CustomClaims) (models.CustomClaims, e
 }
 
 // Decode validates the token and returns the claims.
-func (osvc *OIDCService) Decode(tokenString string) (models.TokenInfo, error) {
+func (osvc *OAuth2OIDCService) Decode(tokenString string) (models.UserInfo, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// Don't forget to validate the alg is what you expect:
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -151,12 +137,12 @@ func (osvc *OIDCService) Decode(tokenString string) (models.TokenInfo, error) {
 	})
 
 	if token == nil {
-		return models.TokenInfo{}, authErrors.ErrorTokenContainsInvalidSegments
+		return models.UserInfo{}, authErrors.ErrorTokenContainsInvalidSegments
 	}
 
 	if token.Valid {
 		claims := token.Claims.(jwt.MapClaims)
-		return models.TokenInfo{
+		return models.UserInfo{
 			UID:  claims[osvc.configuration.UserIDClaim].(string),
 			Name: claims[osvc.configuration.UserNameClaim].(string),
 		}, nil
@@ -164,20 +150,20 @@ func (osvc *OIDCService) Decode(tokenString string) (models.TokenInfo, error) {
 
 	if ve, ok := err.(*jwt.ValidationError); ok {
 		if ve.Errors&jwt.ValidationErrorMalformed != 0 {
-			return models.TokenInfo{}, authErrors.ErrorTokenMalformed
+			return models.UserInfo{}, authErrors.ErrorTokenMalformed
 		} else if ve.Errors&jwt.ValidationErrorExpired != 0 {
-			return models.TokenInfo{}, authErrors.ErrorTokenExpired
+			return models.UserInfo{}, authErrors.ErrorTokenExpired
 		} else if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
-			return models.TokenInfo{}, authErrors.ErrorTokenInactive
+			return models.UserInfo{}, authErrors.ErrorTokenInactive
 		} else if ve.Errors&jwt.ValidationErrorSignatureInvalid != 0 {
-			return models.TokenInfo{}, authErrors.ErrorTokenSignatureInvalid
+			return models.UserInfo{}, authErrors.ErrorTokenSignatureInvalid
 		}
 	}
-	return models.TokenInfo{}, fmt.Errorf("couldn't handle this token: %v", err)
+	return models.UserInfo{}, fmt.Errorf("couldn't handle this token: %v", err)
 }
 
 // getValueFromToken gets the nonce from the ID Token.
-func (osvc *OIDCService) getValueFromToken(value string, t models.Tokens) (interface{}, error) {
+func (osvc *OAuth2OIDCService) getValueFromToken(value string, t models.Tokens) (interface{}, error) {
 	var m map[string]interface{}
 	if err := json.Unmarshal(*t.IDTokenClaims, &m); err != nil {
 		return "", errors.New("an unexpected error occurred when getting the nonce from ID Token")
@@ -187,19 +173,4 @@ func (osvc *OIDCService) getValueFromToken(value string, t models.Tokens) (inter
 		return key, nil
 	}
 	return "", nil
-}
-
-// validateIDToken validates the ID token.
-func (osvc *OIDCService) validateIDToken(ctx context.Context, oauth2Token *oauth2.Token) (oidc.IDToken, error) {
-	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
-	if !ok {
-		return oidc.IDToken{}, errors.New("no id_token field in oauth2 token")
-	}
-	idToken, err := osvc.client.Verify(ctx, rawIDToken)
-	if err != nil {
-		return oidc.IDToken{}, fmt.Errorf("failed to verify ID Token. Error: %v", err)
-	}
-	osvc.logger.Info("[✔️] Login validated with ID token")
-
-	return *idToken, nil
 }

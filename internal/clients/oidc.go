@@ -2,41 +2,45 @@ package clients
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/ydataai/authentication-service/internal/configurations"
+	"github.com/ydataai/authentication-service/internal/models"
 	"github.com/ydataai/go-core/pkg/common/logging"
 	"golang.org/x/oauth2"
 )
 
-// OIDCClient defines a struct that can be used by the OIDC Service.
-type OIDCClient struct {
+// OAuth2OIDCClient defines a struct for OAuth2 OIDC Client.
+type OAuth2OIDCClient struct {
 	configuration configurations.OIDCClientConfiguration
 	oauth2config  *oauth2.Config
 	provider      *oidc.Provider
 	logger        logging.Logger
 }
 
-// OIDCClientInterface defines a interface for OIDC Client.
-type OIDCClientInterface interface {
+// OIDCClient defines a interface for OIDC Client.
+type OIDCClient interface {
 	StartSetup()
 	AuthCodeURL(state, nonce string) string
-	Exchange(ctx context.Context, code string) (*oauth2.Token, error)
-	Verify(ctx context.Context, rawIDToken string) (*oidc.IDToken, error)
+	Exchange(ctx context.Context, code string) (models.OAuth2Token, error)
+	Decode(ctx context.Context, rawIDToken string) (models.Tokens, error)
 }
 
-// NewOIDCClient defines a new values for the server.
-func NewOIDCClient(logger logging.Logger,
-	config configurations.OIDCClientConfiguration) OIDCClientInterface {
+// NewOAuth2OIDCClient defines a new values for the server.
+func NewOAuth2OIDCClient(logger logging.Logger,
+	config configurations.OIDCClientConfiguration) OIDCClient {
 
-	return &OIDCClient{
+	return &OAuth2OIDCClient{
 		configuration: config,
 		logger:        logger,
 	}
 }
 
 // StartSetup initializes setup for OIDC Provider.
-func (oc *OIDCClient) StartSetup() {
+func (oc *OAuth2OIDCClient) StartSetup() {
 	var err error
 	ctx := context.Background()
 
@@ -56,23 +60,57 @@ func (oc *OIDCClient) StartSetup() {
 	}
 }
 
-// Exchange is an oidc lib proxy that converts an authorization code into a token.
-// for more information, see: https://pkg.go.dev/golang.org/x/oauth2#Config.Exchange
-func (oc OIDCClient) Exchange(ctx context.Context, code string) (*oauth2.Token, error) {
-	return oc.oauth2config.Exchange(ctx, code)
-}
-
-// Verify is an oidc lib proxy that parses a raw ID Token, verifies it's been signed by the provider, performs
-// any additional checks depending on the Config, and returns the payload.
-// for more information, see: https://pkg.go.dev/github.com/coreos/go-oidc/v3/oidc#IDTokenVerifier.Verify
-func (oc OIDCClient) Verify(ctx context.Context, rawIDToken string) (*oidc.IDToken, error) {
-	verifier := oc.provider.Verifier(&oidc.Config{ClientID: oc.configuration.ClientID})
-	return verifier.Verify(ctx, rawIDToken)
-}
-
 // AuthCodeURL is an oidc lib proxy that returns a URL to OAuth 2.0 provider's consent page that asks
 //  for permissions for the required scopes explicitly.
 // for more information, see: https://pkg.go.dev/golang.org/x/oauth2#Config.AuthCodeURL
-func (oc *OIDCClient) AuthCodeURL(state, nonce string) string {
+func (oc *OAuth2OIDCClient) AuthCodeURL(state, nonce string) string {
 	return oc.oauth2config.AuthCodeURL(state, oidc.Nonce(nonce))
+}
+
+// Exchange is an oidc lib proxy that converts an authorization code into a token.
+// for more information, see: https://pkg.go.dev/golang.org/x/oauth2#Config.Exchange
+func (oc OAuth2OIDCClient) Exchange(ctx context.Context, code string) (models.OAuth2Token, error) {
+	exchange, err := oc.oauth2config.Exchange(ctx, code)
+	if err != nil {
+		return models.OAuth2Token{}, err
+	}
+
+	rawIDToken, ok := exchange.Extra("id_token").(string)
+	if !ok {
+		return models.OAuth2Token{}, errors.New("no id_token field in oauth2 token")
+	}
+
+	return models.OAuth2Token{
+		AccessToken:  exchange.AccessToken,
+		TokenType:    exchange.TokenType,
+		RefreshToken: exchange.RefreshToken,
+		Expiry:       exchange.Expiry,
+		RawIDToken:   rawIDToken,
+	}, nil
+}
+
+// Decode is an improvement from Verify that parses a raw ID Token, verifies it's been signed
+// by the provider, performs any additional checks depending on the Config, and returns the payload.
+// for more information, see: https://pkg.go.dev/github.com/coreos/go-oidc/v3/oidc#IDTokenVerifier.Verify
+func (oc OAuth2OIDCClient) Decode(ctx context.Context, rawIDToken string) (models.Tokens, error) {
+	verifier := oc.provider.Verifier(&oidc.Config{ClientID: oc.configuration.ClientID})
+	verify, err := verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		return models.Tokens{}, err
+	}
+
+	idTokenClaims := new(json.RawMessage)
+	if err := verify.Claims(&idTokenClaims); err != nil {
+		return models.Tokens{}, fmt.Errorf("an error occurred while validating ID Token. Error: %v", err)
+	}
+
+	cc := models.CustomClaims{}
+	if err := verify.Claims(&cc); err != nil {
+		return models.Tokens{}, fmt.Errorf("an unexpected error has occurred. Error: %v", err)
+	}
+
+	return models.Tokens{
+		IDTokenClaims: idTokenClaims,
+		CustomClaims:  cc,
+	}, nil
 }

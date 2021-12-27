@@ -20,7 +20,7 @@ import (
 // RESTController defines rest controller.
 type RESTController struct {
 	configuration configurations.RESTControllerConfiguration
-	oidcService   services.OIDCServiceInterface
+	oidcService   services.OIDCService
 	credentials   []handlers.CredentialsHandler
 	logger        logging.Logger
 }
@@ -29,7 +29,7 @@ type RESTController struct {
 func NewRESTController(
 	logger logging.Logger,
 	configuration configurations.RESTControllerConfiguration,
-	oidcService services.OIDCServiceInterface,
+	oidcService services.OIDCService,
 	credentials []handlers.CredentialsHandler,
 ) RESTController {
 	return RESTController{
@@ -61,7 +61,7 @@ func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.R
 
 	w.Header().Set("Content-Type", "application/json")
 
-	tokenInfo, err := rc.oidcService.Decode(token)
+	userInfo, err := rc.oidcService.Decode(token)
 	// check if the token is expired.
 	// if so, the OIDC flow will be started to recreate a token.
 	if authErrors.IsTokenExpired(err) {
@@ -76,12 +76,12 @@ func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// if the token passed is valid, let's get the TokenInfo to write in the header.
+	// if the token passed is valid, let's get the UserInfo to write in the header.
 	rc.logger.Debugf("Valid Token: %s", token)
-	rc.logger.Infof("Authorizing request for UserID: %v", tokenInfo.UID)
+	rc.logger.Infof("Authorizing request for UserID: %v", userInfo.UID)
 
 	// set UserID Header + 200 OK
-	w.Header().Set(rc.configuration.UserIDHeader, tokenInfo.UID)
+	w.Header().Set(rc.configuration.UserIDHeader, userInfo.UID)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -127,7 +127,7 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	}
 
 	// If the flow is secure, a JWT will be created...
-	jwt, err := rc.oidcService.Create(&token.CustomClaims)
+	jwt, err := rc.oidcService.Create(token.CustomClaims)
 	if err != nil {
 		rc.logger.Errorf("an error occurred while creating a JWT. Error: %v", err)
 		rc.forbiddenResponse(w, err)
