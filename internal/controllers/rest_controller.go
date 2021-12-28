@@ -62,9 +62,9 @@ func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.R
 	w.Header().Set("Content-Type", "application/json")
 
 	userInfo, err := rc.oidcService.Decode(token)
-	// check if the token is expired.
+	// check if the token is expired or signature invalid.
 	// if so, the OIDC flow will be started to recreate a token.
-	if authErrors.IsTokenExpired(err) {
+	if authErrors.IsTokenExpired(err) || authErrors.IsTokenSignatureInvalid(err) {
 		rc.logger.Warn(err)
 		rc.RedirectToOIDCProvider(w, r)
 		return

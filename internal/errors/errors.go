@@ -26,3 +26,8 @@ func IsTokenNotFound(err error) bool {
 func IsTokenExpired(err error) bool {
 	return err == ErrorTokenExpired
 }
+
+// IsTokenSignatureInvalid returns true if the specified error is an ErrorTokenSignatureInvalid.
+func IsTokenSignatureInvalid(err error) bool {
+	return err == ErrorTokenSignatureInvalid
+}
