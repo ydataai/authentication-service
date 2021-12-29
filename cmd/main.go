@@ -42,14 +42,14 @@ func main() {
 
 	logger.Info("Starting: Authentication Service")
 
-	oidcClient := clients.NewOIDCClient(logger, oidcClientConfiguration)
+	oidcClient := clients.NewOAuth2OIDCClient(logger, oidcClientConfiguration)
 	// Start OIDC Provider setup.
 	oidcClient.StartSetup()
 
 	// Initializes a storage to save temporary sessions configured with TTL.
 	sessionStorage := storages.NewSessionStorage()
 
-	oidcService := services.NewOIDCService(logger, oidcServiceConfiguration, oidcClient, sessionStorage)
+	oidcService := services.NewOAuth2OIDCService(logger, oidcServiceConfiguration, oidcClient, sessionStorage)
 
 	// Gathering the Credentials Handler.
 	headerCredentials := handlers.NewHeaderCredentialsHandler(logger)
