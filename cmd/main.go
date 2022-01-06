@@ -43,8 +43,6 @@ func main() {
 	logger.Info("Starting: Authentication Service")
 
 	oidcClient := clients.NewOAuth2OIDCClient(logger, oidcClientConfiguration)
-	// Start OIDC Provider setup.
-	oidcClient.StartSetup()
 
 	// Initializes a storage to save temporary sessions configured with TTL.
 	sessionStorage := storages.NewSessionStorage()
@@ -65,6 +63,9 @@ func main() {
 	httpServer := server.NewServer(logger, serverConfiguration)
 	restController.Boot(httpServer)
 	httpServer.Run(context.Background())
+
+	// Start OIDC Provider setup.
+	oidcClient.StartSetup()
 
 	// HealthCheck
 	httpServer.AddHealthz()

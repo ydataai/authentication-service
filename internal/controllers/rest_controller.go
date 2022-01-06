@@ -3,7 +3,9 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -42,9 +44,13 @@ func NewRESTController(
 
 // Boot initializes creating some routes.
 func (rc RESTController) Boot(s *server.Server) {
-	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.CheckForAuthentication))
+	s.Router.Use(rc.allowlistMiddleware())
+
+	s.Router.GET("/", gin.WrapF(rc.CheckForAuthentication))
+	s.Router.GET("/:path", gin.WrapF(rc.CheckForAuthentication))
+	s.Router.Any("/:path/*sources", gin.WrapF(rc.CheckForAuthentication))
 	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.OIDCProviderCallback))
-	s.Router.GET(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
+	s.Router.POST(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
 }
 
 // CheckForAuthentication is responsible for knowing if the user already has a valid credential or not.
@@ -185,4 +191,18 @@ func (rc RESTController) forbiddenResponse(w http.ResponseWriter, err error) {
 		Timestamp: time.Now(),
 	}
 	json.NewEncoder(w).Encode(jsonBody)
+}
+
+// allowlistMiddleware is a middleware that allows all requests that match the allowlist.
+func (rc RESTController) allowlistMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		for _, allow := range rc.configuration.AllowlistURL {
+			pathPrefix := fmt.Sprintf("/%s", strings.TrimPrefix(allow, "/"))
+			if strings.HasPrefix(c.Request.URL.Path, pathPrefix) {
+				rc.logger.Infof("URL %s is allowlisted. Accepted without authorization.", c.Request.URL.Path)
+				c.AbortWithStatus(http.StatusOK)
+			}
+		}
+		c.Next()
+	}
 }

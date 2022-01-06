@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/ydataai/authentication-service/internal/configurations"
@@ -44,11 +45,15 @@ func (oc *OAuth2OIDCClient) StartSetup() {
 	var err error
 	ctx := context.Background()
 
-	oc.provider, err = oidc.NewProvider(ctx, oc.configuration.OIDProviderURL)
-	if err != nil {
-		oc.logger.Fatalf("✖️ OIDC Provider setup failed. Error: %v", err)
+	for {
+		oc.provider, err = oidc.NewProvider(ctx, oc.configuration.OIDProviderURL)
+		if err == nil {
+			oc.logger.Info("✔️ Connected to OIDC Provider")
+			break
+		}
+		oc.logger.Errorf("✖️ OIDC Provider setup failed. Error: %v", err)
+		time.Sleep(time.Second * 5)
 	}
-	oc.logger.Info("✔️ Connected to OIDC Provider")
 
 	// Configure an OpenID Connect aware OAuth2 client.
 	oc.oauth2config = &oauth2.Config{
