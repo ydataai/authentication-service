@@ -46,11 +46,12 @@ func NewRESTController(
 func (rc RESTController) Boot(s *server.Server) {
 	s.Router.Use(rc.allowlistMiddleware())
 
-	s.Router.GET("/", gin.WrapF(rc.CheckForAuthentication))
-	s.Router.GET("/:path", gin.WrapF(rc.CheckForAuthentication))
-	s.Router.Any("/:path/*sources", gin.WrapF(rc.CheckForAuthentication))
+	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.CheckForAuthentication))
 	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.OIDCProviderCallback))
 	s.Router.POST(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
+
+	s.Router.Any("/:forward", gin.WrapF(rc.CheckForAuthentication))
+	s.Router.Any("/:forward/*any", gin.WrapF(rc.CheckForAuthentication))
 }
 
 // CheckForAuthentication is responsible for knowing if the user already has a valid credential or not.

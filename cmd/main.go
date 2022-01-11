@@ -62,10 +62,9 @@ func main() {
 
 	httpServer := server.NewServer(logger, serverConfiguration)
 	restController.Boot(httpServer)
-	httpServer.Run(context.Background())
 
-	// Start OIDC Provider setup.
-	oidcClient.StartSetup()
+	// Run HTTP Server and start setup the OIDC Provider.
+	httpServer.Run(context.Background(), oidcClient.StartSetup)
 
 	// HealthCheck
 	httpServer.AddHealthz()
