@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -198,10 +197,10 @@ func (rc RESTController) forbiddenResponse(w http.ResponseWriter, err error) {
 func (rc RESTController) allowlistMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		for _, allow := range rc.configuration.AllowlistURL {
-			pathPrefix := fmt.Sprintf("/%s", strings.TrimPrefix(allow, "/"))
-			if strings.HasPrefix(c.Request.URL.Path, pathPrefix) {
+			if strings.HasPrefix(c.Request.URL.Path, allow) {
 				rc.logger.Infof("URL %s is allowlisted. Accepted without authorization.", c.Request.URL.Path)
-				c.AbortWithStatus(http.StatusOK)
+				c.Abort()
+				return
 			}
 		}
 		c.Next()
