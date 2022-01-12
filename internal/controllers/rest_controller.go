@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -42,9 +43,14 @@ func NewRESTController(
 
 // Boot initializes creating some routes.
 func (rc RESTController) Boot(s *server.Server) {
+	s.Router.Use(rc.skipURLsMiddleware())
+
 	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.CheckForAuthentication))
 	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.OIDCProviderCallback))
-	s.Router.GET(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
+	s.Router.POST(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
+
+	s.Router.Any("/:forward", gin.WrapF(rc.CheckForAuthentication))
+	s.Router.Any("/:forward/*any", gin.WrapF(rc.CheckForAuthentication))
 }
 
 // CheckForAuthentication is responsible for knowing if the user already has a valid credential or not.
@@ -185,4 +191,18 @@ func (rc RESTController) forbiddenResponse(w http.ResponseWriter, err error) {
 		Timestamp: time.Now(),
 	}
 	json.NewEncoder(w).Encode(jsonBody)
+}
+
+// skipURLsMiddleware is a middleware that skips all requests configured in SKIP_URL.
+func (rc RESTController) skipURLsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		for _, skipURL := range rc.configuration.SkipURLs {
+			if strings.HasPrefix(c.Request.URL.Path, skipURL) {
+				rc.logger.Infof("URL %s was skipped. Accepted without authorization.", c.Request.URL.Path)
+				c.Abort()
+				return
+			}
+		}
+		c.Next()
+	}
 }
