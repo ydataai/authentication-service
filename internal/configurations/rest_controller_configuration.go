@@ -14,7 +14,7 @@ type RESTControllerConfiguration struct {
 	HTTPRequestTimeout time.Duration `envconfig:"HTTP_REQUEST_TIMEOUT" default:"30s"`
 	UserIDHeader       string        `envconfig:"USER_ID_HEADER" default:"userid"`
 	CookieMaxAge       int           `envconfig:"COOKIE_MAX_AGE" default:"86400"`
-	SkipURL            []string      `envconfig:"SKIP_URL" default:"/dex" split_words:"true"`
+	SkipURLs           []string      `envconfig:"SKIP_URLS" default:"/dex" split_words:"true"`
 }
 
 // LoadFromEnvVars reads all env vars.
