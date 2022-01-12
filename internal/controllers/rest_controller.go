@@ -43,7 +43,7 @@ func NewRESTController(
 
 // Boot initializes creating some routes.
 func (rc RESTController) Boot(s *server.Server) {
-	s.Router.Use(rc.allowlistMiddleware())
+	s.Router.Use(rc.skipURLMiddleware())
 
 	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.CheckForAuthentication))
 	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.OIDCProviderCallback))
@@ -193,12 +193,12 @@ func (rc RESTController) forbiddenResponse(w http.ResponseWriter, err error) {
 	json.NewEncoder(w).Encode(jsonBody)
 }
 
-// allowlistMiddleware is a middleware that allows all requests that match the allowlist.
-func (rc RESTController) allowlistMiddleware() gin.HandlerFunc {
+// skipURLMiddleware is a middleware that skips all requests configured in SKIP_URL.
+func (rc RESTController) skipURLMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		for _, allow := range rc.configuration.AllowlistURL {
-			if strings.HasPrefix(c.Request.URL.Path, allow) {
-				rc.logger.Infof("URL %s is allowlisted. Accepted without authorization.", c.Request.URL.Path)
+		for _, skip := range rc.configuration.SkipURL {
+			if strings.HasPrefix(c.Request.URL.Path, skip) {
+				rc.logger.Infof("URL %s was skipped. Accepted without authorization.", c.Request.URL.Path)
 				c.Abort()
 				return
 			}
