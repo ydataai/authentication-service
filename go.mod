@@ -3,6 +3,7 @@ module github.com/ydataai/authentication-service
 go 1.17
 
 require (
+	github.com/alicebob/miniredis/v2 v2.17.0
 	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/gin-gonic/gin v1.7.4
 	github.com/golang-jwt/jwt/v4 v4.2.0
@@ -13,6 +14,7 @@ require (
 )
 
 require (
+	github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a // indirect
 	github.com/armon/go-metrics v0.3.9 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/cenkalti/backoff/v3 v3.0.0 // indirect
@@ -67,6 +69,7 @@ require (
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/ugorji/go/codec v1.1.7 // indirect
+	github.com/yuin/gopher-lua v0.0.0-20200816102855-ee81675732da // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97 // indirect
 	golang.org/x/net v0.0.0-20210520170846-37e1c6afe023 // indirect

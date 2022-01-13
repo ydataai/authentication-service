@@ -11,6 +11,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -34,6 +35,8 @@ const (
 	redirect     = "http://localhost:5555/auth/oidc/callback"
 )
 
+var mr, _ = miniredis.Run()
+
 // Starting Fake OIDC Provider.
 func init() {
 	serverConfiguration := server.HTTPServerConfiguration{}
@@ -56,7 +59,7 @@ func setupOIDCService() (clients.OIDCClient, configurations.OIDCServiceConfigura
 	coreClients.RedisClient, logging.Logger) {
 	logger := setupLogger()
 	oidcServiceConfiguration := configurations.OIDCServiceConfiguration{}
-	redisConfiguration := coreClients.RedisConfiguration{}
+	redisConfiguration := coreClients.RedisConfiguration{Address: mr.Addr()}
 	sessionStorage := storages.NewSessionStorage()
 	redisClient := coreClients.NewRedisClient(redisConfiguration, logger)
 	mockOIDCClient := NewMockOIDCClient()
