@@ -84,10 +84,10 @@ func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.R
 
 	// if the token passed is valid, let's get the UserInfo to write in the header.
 	rc.logger.Debugf("Valid Token: %s", token)
-	rc.logger.Infof("Authorizing request for UserID: %v", userInfo.UID)
+	rc.logger.Infof("Authorizing request for UserID: %v", userInfo.Email)
 
 	// set UserID Header + 200 OK
-	w.Header().Set(rc.configuration.UserIDHeader, userInfo.UID)
+	w.Header().Set(rc.configuration.UserIDHeader, userInfo.Email)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -139,9 +139,14 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 		rc.forbiddenResponse(w, err)
 		return
 	}
-	// ...set a session cookie.
+	// ...set a session cookie...
 	rc.setSessionCookie(w, r, "access_token", jwt.AccessToken)
+	// ...publish a new message to be consumed.
+	if err = rc.oidcService.PublishUserInfo(context.Background(), token); err != nil {
+		rc.logger.Errorf("An error occurred while publishing: %v", err)
+	}
 
+	// rc.oidcService.PublishMessage(context.Background(), token.CustomClaims.)
 	rc.logger.Infof("Redirecting back to %s", rc.configuration.AuthServiceURL)
 	http.Redirect(w, r, rc.configuration.AuthServiceURL, http.StatusFound)
 }

@@ -14,6 +14,8 @@ import (
 	authErrors "github.com/ydataai/authentication-service/internal/errors"
 	"github.com/ydataai/authentication-service/internal/models"
 	"github.com/ydataai/authentication-service/internal/storages"
+
+	coreClients "github.com/ydataai/go-core/pkg/common/clients"
 	"github.com/ydataai/go-core/pkg/common/logging"
 )
 
@@ -22,6 +24,7 @@ type OAuth2OIDCService struct {
 	configuration  configurations.OIDCServiceConfiguration
 	client         clients.OIDCClient
 	sessionStorage *storages.SessionStorage
+	redisClient    coreClients.RedisClient
 	logger         logging.Logger
 }
 
@@ -30,19 +33,21 @@ type OIDCService interface {
 	GetOIDCProviderURL() (string, error)
 	Claims(ctx context.Context, code string) (models.Tokens, error)
 	IsFlowSecure(state string, token models.Tokens) (bool, error)
-
 	Create(cc models.CustomClaims) (models.CustomClaims, error)
 	Decode(tokenString string) (models.UserInfo, error)
+	PublishUserInfo(ctx context.Context, token models.Tokens) error
 }
 
 // NewOAuth2OIDCService creates a new OAuth2 OIDC Service struct.
 func NewOAuth2OIDCService(logger logging.Logger,
 	configuration configurations.OIDCServiceConfiguration,
 	client clients.OIDCClient,
-	sessionStorage *storages.SessionStorage) OIDCService {
+	sessionStorage *storages.SessionStorage,
+	redisClient coreClients.RedisClient) OIDCService {
 	return &OAuth2OIDCService{
 		configuration:  configuration,
 		client:         client,
+		redisClient:    redisClient,
 		sessionStorage: sessionStorage,
 		logger:         logger,
 	}
@@ -111,7 +116,7 @@ func (osvc *OAuth2OIDCService) Create(cc models.CustomClaims) (models.CustomClai
 	customClaims := models.CustomClaims{
 		Name:    cc.Name,
 		Email:   cc.Email,
-		Profile: cc.Profile,
+		Picture: cc.Picture,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(osvc.configuration.UserJWTExpires))),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -143,8 +148,8 @@ func (osvc *OAuth2OIDCService) Decode(tokenString string) (models.UserInfo, erro
 	if token.Valid {
 		claims := token.Claims.(jwt.MapClaims)
 		return models.UserInfo{
-			UID:  claims[osvc.configuration.UserIDClaim].(string),
-			Name: claims[osvc.configuration.UserNameClaim].(string),
+			Name:  claims[osvc.configuration.UserNameClaim].(string),
+			Email: claims[osvc.configuration.UserEmailClaim].(string),
 		}, nil
 	}
 
@@ -160,6 +165,20 @@ func (osvc *OAuth2OIDCService) Decode(tokenString string) (models.UserInfo, erro
 		}
 	}
 	return models.UserInfo{}, fmt.Errorf("couldn't handle this token: %v", err)
+}
+
+// PublishUserInfo to be consumed by other sources.
+func (osvc *OAuth2OIDCService) PublishUserInfo(ctx context.Context, token models.Tokens) error {
+	userInfo := models.UserInfo{
+		Name:  token.CustomClaims.Name,
+		Email: token.CustomClaims.Email,
+	}
+	userInfoMsg, err := json.Marshal(userInfo)
+	if err != nil {
+		return err
+	}
+
+	return osvc.redisClient.Publish(ctx, osvc.configuration.TopicUserInfo, userInfoMsg).Err()
 }
 
 // getValueFromToken gets the nonce from the ID Token.
