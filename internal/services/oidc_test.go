@@ -21,6 +21,8 @@ import (
 	authErrors "github.com/ydataai/authentication-service/internal/errors"
 	"github.com/ydataai/authentication-service/internal/models"
 	"github.com/ydataai/authentication-service/internal/storages"
+
+	coreClients "github.com/ydataai/go-core/pkg/common/clients"
 	"github.com/ydataai/go-core/pkg/common/logging"
 	"github.com/ydataai/go-core/pkg/common/server"
 )
@@ -50,11 +52,15 @@ func setupLogger() logging.Logger {
 }
 
 // setupOIDCService is a helper, because it's necessary to call many times.
-func setupOIDCService() (clients.OIDCClient, configurations.OIDCServiceConfiguration, *storages.SessionStorage, logging.Logger) {
+func setupOIDCService() (clients.OIDCClient, configurations.OIDCServiceConfiguration, *storages.SessionStorage,
+	coreClients.RedisClient, logging.Logger) {
+	logger := setupLogger()
 	oidcServiceConfiguration := configurations.OIDCServiceConfiguration{}
+	redisConfiguration := coreClients.RedisConfiguration{}
 	sessionStorage := storages.NewSessionStorage()
+	redisClient := coreClients.NewRedisClient(redisConfiguration, logger)
 	mockOIDCClient := NewMockOIDCClient()
-	return mockOIDCClient, oidcServiceConfiguration, sessionStorage, setupLogger()
+	return mockOIDCClient, oidcServiceConfiguration, sessionStorage, redisClient, logger
 }
 
 type MockOIDCClient struct {
@@ -186,9 +192,8 @@ func mockOIDCProvider(httpServer *server.Server, address string) {
 }
 
 func TestGetOIDCProviderURL(t *testing.T) {
-	mockOIDCClient, oidcServiceConfiguration, sessionStorage, logger := setupOIDCService()
-
-	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage)
+	mockOIDCClient, oidcServiceConfiguration, sessionStorage, redisClient, logger := setupOIDCService()
+	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage, redisClient)
 
 	oidcProviderURL, _ := osvc.GetOIDCProviderURL()
 
@@ -202,9 +207,8 @@ func TestGetOIDCProviderURL(t *testing.T) {
 }
 
 func TestIsFlowSecure(t *testing.T) {
-	mockOIDCClient, oidcServiceConfiguration, sessionStorage, logger := setupOIDCService()
-
-	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage)
+	mockOIDCClient, oidcServiceConfiguration, sessionStorage, redisClient, logger := setupOIDCService()
+	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage, redisClient)
 
 	// static Token to be tested
 	idToken := json.RawMessage(`
@@ -263,13 +267,13 @@ func TestIsFlowSecure(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
-	mockOIDCClient, oidcServiceConfiguration, sessionStorage, logger := setupOIDCService()
+	mockOIDCClient, oidcServiceConfiguration, sessionStorage, redisClient, logger := setupOIDCService()
 	// custom config
 	os.Setenv("HMAC_SECRET", "developers@ydata.ai")
 	oidcServiceConfiguration.LoadFromEnvVars()
 	oidcServiceConfiguration.UserJWTExpires = time.Duration(time.Minute)
 
-	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage)
+	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage, redisClient)
 
 	customClaims := models.CustomClaims{
 		Name:  "Azory",
@@ -287,7 +291,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestDecode(t *testing.T) {
-	mockOIDCClient, oidcServiceConfiguration, sessionStorage, logger := setupOIDCService()
+	mockOIDCClient, oidcServiceConfiguration, sessionStorage, redisClient, logger := setupOIDCService()
 	oidcServiceConfiguration.LoadFromEnvVars()
 
 	testCases := []struct {
@@ -343,7 +347,7 @@ func TestDecode(t *testing.T) {
 
 	for _, tt := range testCases {
 		oidcServiceConfiguration.HMACSecret = []byte(tt.signature)
-		osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage)
+		osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage, redisClient)
 
 		decodedToken, err := osvc.Decode(tt.token)
 		if tt.errorReason == nil {
@@ -360,8 +364,8 @@ func TestDecode(t *testing.T) {
 
 func TestClaims(t *testing.T) {
 	ctx := context.Background()
-	mockOIDCClient, oidcServiceConfiguration, sessionStorage, logger := setupOIDCService()
-	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage)
+	mockOIDCClient, oidcServiceConfiguration, sessionStorage, redisClient, logger := setupOIDCService()
+	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage, redisClient)
 
 	testCases := []struct {
 		code string
