@@ -6,6 +6,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.17.0
 	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/gin-gonic/gin v1.7.4
+	github.com/go-redis/redis/v8 v8.11.4
 	github.com/golang-jwt/jwt/v4 v4.2.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/stretchr/testify v1.7.0
@@ -26,7 +27,6 @@ require (
 	github.com/go-playground/locales v0.13.0 // indirect
 	github.com/go-playground/universal-translator v0.17.0 // indirect
 	github.com/go-playground/validator/v10 v10.4.1 // indirect
-	github.com/go-redis/redis/v8 v8.11.4 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.1.2 // indirect
