@@ -14,6 +14,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 
@@ -54,14 +55,35 @@ func setupLogger() logging.Logger {
 	return logging.NewLogger(loggerConfig)
 }
 
+type redisClientMock struct{}
+
+func (c redisClientMock) Get(ctx context.Context, key string) *redis.StringCmd {
+	return &redis.StringCmd{}
+}
+
+func (c redisClientMock) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd {
+	return &redis.StatusCmd{}
+}
+
+func (c redisClientMock) Publish(ctx context.Context, channel string, message interface{}) *redis.IntCmd {
+	return &redis.IntCmd{}
+}
+
+func (c redisClientMock) Subscribe(ctx context.Context, channels ...string) *redis.PubSub {
+	return &redis.PubSub{}
+}
+
+func newRedisClientMock() coreClients.RedisClient {
+	return redisClientMock{}
+}
+
 // setupOIDCService is a helper, because it's necessary to call many times.
 func setupOIDCService() (clients.OIDCClient, configurations.OIDCServiceConfiguration, *storages.SessionStorage,
 	coreClients.RedisClient, logging.Logger) {
 	logger := setupLogger()
 	oidcServiceConfiguration := configurations.OIDCServiceConfiguration{}
-	redisConfiguration := coreClients.RedisConfiguration{Address: mr.Addr()}
 	sessionStorage := storages.NewSessionStorage()
-	redisClient := coreClients.NewRedisClient(redisConfiguration, logger)
+	redisClient := newRedisClientMock()
 	mockOIDCClient := NewMockOIDCClient()
 	return mockOIDCClient, oidcServiceConfiguration, sessionStorage, redisClient, logger
 }

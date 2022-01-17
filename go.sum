@@ -540,6 +540,10 @@ github.com/ydataai/go-core v0.5.0 h1:/l6KRy1dbxBrvAmEOiyXQKpEHxVaFaGzQXInTxgqB3o
 github.com/ydataai/go-core v0.5.0/go.mod h1:iqZ6dM1MSGvSO0w2BpsCbNkTgKxAJ4EczQz8+jTe50k=
 github.com/ydataai/go-core v0.5.2 h1:+hhTAo5v6Xb+Ej7azXADtHE+HmUVx00HSFOiQkfBBM8=
 github.com/ydataai/go-core v0.5.2/go.mod h1:iqZ6dM1MSGvSO0w2BpsCbNkTgKxAJ4EczQz8+jTe50k=
+github.com/ydataai/go-core v0.6.0 h1:pP5xtSgN8yzf+gfoxnbXpkLHKeE3InnP1uDyh+K565U=
+github.com/ydataai/go-core v0.6.0/go.mod h1:iqZ6dM1MSGvSO0w2BpsCbNkTgKxAJ4EczQz8+jTe50k=
+github.com/ydataai/go-core v0.6.1 h1:jNMSzh8cuDK2Fg07QYeV+iJ8VvsE1dvtpeDCbvwgW3c=
+github.com/ydataai/go-core v0.6.1/go.mod h1:iqZ6dM1MSGvSO0w2BpsCbNkTgKxAJ4EczQz8+jTe50k=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
