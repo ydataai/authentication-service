@@ -538,6 +538,8 @@ github.com/ugorji/go/codec v1.1.7/go.mod h1:Ax+UKWsSmolVDwsd+7N3ZtXu+yMGCf907BLY
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/ydataai/go-core v0.5.0 h1:/l6KRy1dbxBrvAmEOiyXQKpEHxVaFaGzQXInTxgqB3o=
 github.com/ydataai/go-core v0.5.0/go.mod h1:iqZ6dM1MSGvSO0w2BpsCbNkTgKxAJ4EczQz8+jTe50k=
+github.com/ydataai/go-core v0.5.2 h1:+hhTAo5v6Xb+Ej7azXADtHE+HmUVx00HSFOiQkfBBM8=
+github.com/ydataai/go-core v0.5.2/go.mod h1:iqZ6dM1MSGvSO0w2BpsCbNkTgKxAJ4EczQz8+jTe50k=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
