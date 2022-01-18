@@ -144,6 +144,8 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	// ...publish a new message to be consumed.
 	if err = rc.oidcService.PublishUserInfo(context.Background(), token); err != nil {
 		rc.logger.Errorf("An error occurred while publishing: %v", err)
+		rc.internalServerError(w, err)
+		return
 	}
 
 	// rc.oidcService.PublishMessage(context.Background(), token.CustomClaims.)
@@ -189,13 +191,21 @@ func (rc RESTController) deleteSessionCookie(w http.ResponseWriter, name string)
 	http.SetCookie(w, &http.Cookie{Name: name, MaxAge: -1, Path: rc.configuration.AuthServiceURL})
 }
 
-func (rc RESTController) forbiddenResponse(w http.ResponseWriter, err error) {
-	w.WriteHeader(http.StatusForbidden)
+func (rc RESTController) errorResponse(w http.ResponseWriter, code int, err error) {
+	w.WriteHeader(code)
 	jsonBody := models.ErrorResponse{
 		Message:   err.Error(),
 		Timestamp: time.Now(),
 	}
 	json.NewEncoder(w).Encode(jsonBody)
+}
+
+func (rc RESTController) forbiddenResponse(w http.ResponseWriter, err error) {
+	rc.errorResponse(w, http.StatusForbidden, err)
+}
+
+func (rc RESTController) internalServerError(w http.ResponseWriter, err error) {
+	rc.errorResponse(w, http.StatusInternalServerError, err)
 }
 
 // skipURLsMiddleware is a middleware that skips all requests configured in SKIP_URL.
