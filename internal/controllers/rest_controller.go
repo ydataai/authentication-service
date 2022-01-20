@@ -65,8 +65,6 @@ func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
 	userInfo, err := rc.oidcService.Decode(token)
 	// check if the token is expired or signature invalid.
 	// if so, the OIDC flow will be started to recreate a token.
@@ -155,8 +153,16 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 
 // Logout is responsible for revoking a token and deleting an authentication cookie.
 func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
-	// TODO: revoke token
+	// workflow to identify if there is a token present.
+	_, err := rc.getCredentials(r)
+	// if a token is not found, return Forbidden.
+	if authErrors.IsTokenNotFound(err) {
+		rc.forbiddenResponse(w, err)
+		return
+	}
+
 	rc.deleteSessionCookie(w, "access_token")
+	w.WriteHeader(http.StatusOK)
 }
 
 // getCredentials is responsible for simply getting credentials.
@@ -192,6 +198,7 @@ func (rc RESTController) deleteSessionCookie(w http.ResponseWriter, name string)
 }
 
 func (rc RESTController) errorResponse(w http.ResponseWriter, code int, err error) {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	jsonBody := models.ErrorResponse{
 		Message:   err.Error(),
