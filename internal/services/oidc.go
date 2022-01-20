@@ -180,7 +180,7 @@ func (osvc *OAuth2OIDCService) PublishUserInfo(ctx context.Context, token models
 
 	err = osvc.redisClient.Publish(ctx, osvc.configuration.TopicUserInfo, userInfoMsg).Err()
 	if err != nil {
-		osvc.logger.Errorf("[User Info: %s] Pushing with error in the topic: %s", token.CustomClaims.Email, osvc.configuration.TopicUserInfo)
+		return err
 	}
 	osvc.logger.Infof("[User Info: %s] Publishing successfully in the topic: %s", token.CustomClaims.Email, osvc.configuration.TopicUserInfo)
 
