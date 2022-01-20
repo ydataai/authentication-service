@@ -178,7 +178,11 @@ func (osvc *OAuth2OIDCService) PublishUserInfo(ctx context.Context, token models
 		return err
 	}
 
-	return osvc.redisClient.Publish(ctx, osvc.configuration.TopicUserInfo, userInfoMsg).Err()
+	err = osvc.redisClient.Publish(ctx, osvc.configuration.TopicUserInfo, userInfoMsg).Err()
+	if err == nil {
+	    osvc.logger.Infof("[User Info: %s] Publishing successfully in the topic: %s", token.CustomClaims.Email, osvc.configuration.TopicUserInfo)
+	}
+	return err
 }
 
 // getValueFromToken gets the nonce from the ID Token.

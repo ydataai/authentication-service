@@ -11,7 +11,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/alicebob/miniredis/v2"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -35,8 +34,6 @@ const (
 	fakeClientID = "fakeID"
 	redirect     = "http://localhost:5555/auth/oidc/callback"
 )
-
-var mr, _ = miniredis.Run()
 
 // Starting Fake OIDC Provider.
 func init() {
@@ -71,6 +68,10 @@ func (c redisClientMock) Publish(ctx context.Context, channel string, message in
 
 func (c redisClientMock) Subscribe(ctx context.Context, channels ...string) *redis.PubSub {
 	return &redis.PubSub{}
+}
+
+func (c redisClientMock) Ping(ctx context.Context) *redis.StatusCmd {
+	return &redis.StatusCmd{}
 }
 
 func newRedisClientMock() coreClients.RedisClient {
