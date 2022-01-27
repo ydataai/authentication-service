@@ -84,6 +84,13 @@ func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.R
 	rc.logger.Debugf("Valid Token: %s", token)
 	rc.logger.Infof("Authorizing request for UserID: %v", userInfo.Email)
 
+	// publish a new message to be consumed.
+	if err = rc.oidcService.PublishUserInfo(context.Background(), userInfo); err != nil {
+		rc.logger.Errorf("An error occurred while publishing: %v", err)
+		rc.internalServerError(w, err)
+		return
+	}
+
 	// set UserID Header + 200 OK
 	w.Header().Set(rc.configuration.UserIDHeader, userInfo.Email)
 	w.WriteHeader(http.StatusOK)
@@ -137,16 +144,9 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 		rc.forbiddenResponse(w, err)
 		return
 	}
-	// ...set a session cookie...
+	// ...set a session cookie.
 	rc.setSessionCookie(w, r, "access_token", jwt.AccessToken)
-	// ...publish a new message to be consumed.
-	if err = rc.oidcService.PublishUserInfo(context.Background(), token); err != nil {
-		rc.logger.Errorf("An error occurred while publishing: %v", err)
-		rc.internalServerError(w, err)
-		return
-	}
 
-	// rc.oidcService.PublishMessage(context.Background(), token.CustomClaims.)
 	rc.logger.Infof("Redirecting back to %s", rc.configuration.AuthServiceURL)
 	http.Redirect(w, r, rc.configuration.AuthServiceURL, http.StatusFound)
 }

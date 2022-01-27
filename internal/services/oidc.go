@@ -35,7 +35,7 @@ type OIDCService interface {
 	IsFlowSecure(state string, token models.Tokens) (bool, error)
 	Create(cc models.CustomClaims) (models.CustomClaims, error)
 	Decode(tokenString string) (models.UserInfo, error)
-	PublishUserInfo(ctx context.Context, token models.Tokens) error
+	PublishUserInfo(ctx context.Context, token models.UserInfo) error
 }
 
 // NewOAuth2OIDCService creates a new OAuth2 OIDC Service struct.
@@ -168,11 +168,7 @@ func (osvc *OAuth2OIDCService) Decode(tokenString string) (models.UserInfo, erro
 }
 
 // PublishUserInfo to be consumed by other sources.
-func (osvc *OAuth2OIDCService) PublishUserInfo(ctx context.Context, token models.Tokens) error {
-	userInfo := models.UserInfo{
-		Name:  token.CustomClaims.Name,
-		Email: token.CustomClaims.Email,
-	}
+func (osvc *OAuth2OIDCService) PublishUserInfo(ctx context.Context, userInfo models.UserInfo) error {
 	userInfoMsg, err := json.Marshal(userInfo)
 	if err != nil {
 		return err
@@ -180,7 +176,7 @@ func (osvc *OAuth2OIDCService) PublishUserInfo(ctx context.Context, token models
 
 	err = osvc.redisClient.Publish(ctx, osvc.configuration.TopicUserInfo, userInfoMsg).Err()
 	if err == nil {
-	    osvc.logger.Infof("[User Info: %s] Publishing successfully in the topic: %s", token.CustomClaims.Email, osvc.configuration.TopicUserInfo)
+		osvc.logger.Infof("[User Info: %s] Publishing successfully in the topic: %s", userInfo.Email, osvc.configuration.TopicUserInfo)
 	}
 	return err
 }
