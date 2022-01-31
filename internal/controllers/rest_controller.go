@@ -47,6 +47,7 @@ func (rc RESTController) Boot(s *server.Server) {
 
 	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.CheckForAuthentication))
 	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.OIDCProviderCallback))
+	s.Router.GET(rc.configuration.UserInfoURL, gin.WrapF(rc.UserInfo))
 	s.Router.POST(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
 
 	s.Router.Any("/:forward", gin.WrapF(rc.CheckForAuthentication))
@@ -95,7 +96,7 @@ func (rc RESTController) RedirectToOIDCProvider(w http.ResponseWriter, r *http.R
 	oidcProviderURL, err := rc.oidcService.GetOIDCProviderURL()
 	if err != nil {
 		rc.logger.Error(err.Error())
-		rc.forbiddenResponse(w, err)
+		rc.internalServerError(w, err)
 		return
 	}
 
@@ -137,18 +138,32 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 		rc.forbiddenResponse(w, err)
 		return
 	}
-	// ...set a session cookie...
+	// ...set a session cookie.
 	rc.setSessionCookie(w, r, "access_token", jwt.AccessToken)
-	// ...publish a new message to be consumed.
-	if err = rc.oidcService.PublishUserInfo(context.Background(), token); err != nil {
-		rc.logger.Errorf("An error occurred while publishing: %v", err)
-		rc.internalServerError(w, err)
+
+	rc.logger.Infof("Redirecting back to %s", rc.configuration.AuthServiceURL)
+	http.Redirect(w, r, rc.configuration.AuthServiceURL, http.StatusFound)
+}
+
+// UserInfo shows user info from the OIDC Provider.
+func (rc RESTController) UserInfo(w http.ResponseWriter, r *http.Request) {
+	// workflow to identify if there is a token present.
+	token, err := rc.getCredentials(r)
+	// if a token is not found, return Forbidden.
+	if authErrors.IsTokenNotFound(err) {
+		rc.forbiddenResponse(w, err)
+		return
+	}
+	userInfo, err := rc.oidcService.Decode(token)
+	if err != nil {
+		rc.logger.Errorf("an error occurred while decoding token: %v", err)
+		rc.forbiddenResponse(w, err)
 		return
 	}
 
-	// rc.oidcService.PublishMessage(context.Background(), token.CustomClaims.)
-	rc.logger.Infof("Redirecting back to %s", rc.configuration.AuthServiceURL)
-	http.Redirect(w, r, rc.configuration.AuthServiceURL, http.StatusFound)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(userInfo)
 }
 
 // Logout is responsible for revoking a token and deleting an authentication cookie.

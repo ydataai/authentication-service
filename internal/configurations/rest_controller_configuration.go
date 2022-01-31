@@ -11,6 +11,7 @@ type RESTControllerConfiguration struct {
 	OIDCCallbackURL    string        `envconfig:"OIDC_CALLBACK_URL" default:"/auth/oidc/callback"`
 	AuthServiceURL     string        `envconfig:"AUTHSERVICE_URL" default:"/"`
 	LogoutURL          string        `envconfig:"LOGOUT_URL" default:"/logout"`
+	UserInfoURL        string        `envconfig:"USER_INFO_URL" default:"/userinfo"`
 	HTTPRequestTimeout time.Duration `envconfig:"HTTP_REQUEST_TIMEOUT" default:"30s"`
 	UserIDHeader       string        `envconfig:"USER_ID_HEADER" default:"userid"`
 	CookieMaxAge       int           `envconfig:"COOKIE_MAX_AGE" default:"86400"`

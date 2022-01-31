@@ -35,7 +35,6 @@ type OIDCService interface {
 	IsFlowSecure(state string, token models.Tokens) (bool, error)
 	Create(cc models.CustomClaims) (models.CustomClaims, error)
 	Decode(tokenString string) (models.UserInfo, error)
-	PublishUserInfo(ctx context.Context, token models.Tokens) error
 }
 
 // NewOAuth2OIDCService creates a new OAuth2 OIDC Service struct.
@@ -165,24 +164,6 @@ func (osvc *OAuth2OIDCService) Decode(tokenString string) (models.UserInfo, erro
 		}
 	}
 	return models.UserInfo{}, fmt.Errorf("couldn't handle this token: %v", err)
-}
-
-// PublishUserInfo to be consumed by other sources.
-func (osvc *OAuth2OIDCService) PublishUserInfo(ctx context.Context, token models.Tokens) error {
-	userInfo := models.UserInfo{
-		Name:  token.CustomClaims.Name,
-		Email: token.CustomClaims.Email,
-	}
-	userInfoMsg, err := json.Marshal(userInfo)
-	if err != nil {
-		return err
-	}
-
-	err = osvc.redisClient.Publish(ctx, osvc.configuration.TopicUserInfo, userInfoMsg).Err()
-	if err == nil {
-	    osvc.logger.Infof("[User Info: %s] Publishing successfully in the topic: %s", token.CustomClaims.Email, osvc.configuration.TopicUserInfo)
-	}
-	return err
 }
 
 // getValueFromToken gets the nonce from the ID Token.
