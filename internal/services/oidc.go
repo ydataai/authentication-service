@@ -15,7 +15,6 @@ import (
 	"github.com/ydataai/authentication-service/internal/models"
 	"github.com/ydataai/authentication-service/internal/storages"
 
-	coreClients "github.com/ydataai/go-core/pkg/common/clients"
 	"github.com/ydataai/go-core/pkg/common/logging"
 )
 
@@ -24,7 +23,6 @@ type OAuth2OIDCService struct {
 	configuration  configurations.OIDCServiceConfiguration
 	client         clients.OIDCClient
 	sessionStorage *storages.SessionStorage
-	redisClient    coreClients.RedisClient
 	logger         logging.Logger
 }
 
@@ -41,12 +39,10 @@ type OIDCService interface {
 func NewOAuth2OIDCService(logger logging.Logger,
 	configuration configurations.OIDCServiceConfiguration,
 	client clients.OIDCClient,
-	sessionStorage *storages.SessionStorage,
-	redisClient coreClients.RedisClient) OIDCService {
+	sessionStorage *storages.SessionStorage) OIDCService {
 	return &OAuth2OIDCService{
 		configuration:  configuration,
 		client:         client,
-		redisClient:    redisClient,
 		sessionStorage: sessionStorage,
 		logger:         logger,
 	}

@@ -12,7 +12,6 @@ import (
 	"github.com/ydataai/authentication-service/internal/services"
 	"github.com/ydataai/authentication-service/internal/storages"
 
-	coreClients "github.com/ydataai/go-core/pkg/common/clients"
 	"github.com/ydataai/go-core/pkg/common/config"
 	"github.com/ydataai/go-core/pkg/common/logging"
 	"github.com/ydataai/go-core/pkg/common/server"
@@ -28,7 +27,6 @@ func main() {
 	oidcClientConfiguration := configurations.OIDCClientConfiguration{}
 	oidcServiceConfiguration := configurations.OIDCServiceConfiguration{}
 	restConfiguration := configurations.RESTControllerConfiguration{}
-	redisConfiguration := coreClients.RedisConfiguration{}
 
 	if err := config.InitConfigurationVariables([]config.ConfigurationVariables{
 		&loggerConfiguration,
@@ -36,7 +34,6 @@ func main() {
 		&oidcClientConfiguration,
 		&oidcServiceConfiguration,
 		&restConfiguration,
-		&redisConfiguration,
 	}); err != nil {
 		fmt.Println(fmt.Errorf("[✖️] Could not set configuration variables. Err: %v", err))
 		os.Exit(1)
@@ -51,9 +48,7 @@ func main() {
 	// Initializes a storage to save temporary sessions configured with TTL.
 	sessionStorage := storages.NewSessionStorage()
 
-	redisClient := coreClients.NewRedisClient(redisConfiguration, logger)
-
-	oidcService := services.NewOAuth2OIDCService(logger, oidcServiceConfiguration, oidcClient, sessionStorage, redisClient)
+	oidcService := services.NewOAuth2OIDCService(logger, oidcServiceConfiguration, oidcClient, sessionStorage)
 
 	// Gathering the Credentials Handler.
 	headerCredentials := handlers.NewHeaderCredentialsHandler(logger)

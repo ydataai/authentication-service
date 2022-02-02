@@ -13,7 +13,6 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 
@@ -23,7 +22,6 @@ import (
 	"github.com/ydataai/authentication-service/internal/models"
 	"github.com/ydataai/authentication-service/internal/storages"
 
-	coreClients "github.com/ydataai/go-core/pkg/common/clients"
 	"github.com/ydataai/go-core/pkg/common/logging"
 	"github.com/ydataai/go-core/pkg/common/server"
 )
@@ -52,41 +50,14 @@ func setupLogger() logging.Logger {
 	return logging.NewLogger(loggerConfig)
 }
 
-type redisClientMock struct{}
-
-func (c redisClientMock) Get(ctx context.Context, key string) *redis.StringCmd {
-	return &redis.StringCmd{}
-}
-
-func (c redisClientMock) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd {
-	return &redis.StatusCmd{}
-}
-
-func (c redisClientMock) Publish(ctx context.Context, channel string, message interface{}) *redis.IntCmd {
-	return &redis.IntCmd{}
-}
-
-func (c redisClientMock) Subscribe(ctx context.Context, channels ...string) *redis.PubSub {
-	return &redis.PubSub{}
-}
-
-func (c redisClientMock) Ping(ctx context.Context) *redis.StatusCmd {
-	return &redis.StatusCmd{}
-}
-
-func newRedisClientMock() coreClients.RedisClient {
-	return redisClientMock{}
-}
-
 // setupOIDCService is a helper, because it's necessary to call many times.
 func setupOIDCService() (clients.OIDCClient, configurations.OIDCServiceConfiguration, *storages.SessionStorage,
-	coreClients.RedisClient, logging.Logger) {
+	logging.Logger) {
 	logger := setupLogger()
 	oidcServiceConfiguration := configurations.OIDCServiceConfiguration{}
 	sessionStorage := storages.NewSessionStorage()
-	redisClient := newRedisClientMock()
 	mockOIDCClient := NewMockOIDCClient()
-	return mockOIDCClient, oidcServiceConfiguration, sessionStorage, redisClient, logger
+	return mockOIDCClient, oidcServiceConfiguration, sessionStorage, logger
 }
 
 type MockOIDCClient struct {
@@ -218,8 +189,8 @@ func mockOIDCProvider(httpServer *server.Server, address string) {
 }
 
 func TestGetOIDCProviderURL(t *testing.T) {
-	mockOIDCClient, oidcServiceConfiguration, sessionStorage, redisClient, logger := setupOIDCService()
-	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage, redisClient)
+	mockOIDCClient, oidcServiceConfiguration, sessionStorage, logger := setupOIDCService()
+	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage)
 
 	oidcProviderURL, _ := osvc.GetOIDCProviderURL()
 
@@ -233,8 +204,8 @@ func TestGetOIDCProviderURL(t *testing.T) {
 }
 
 func TestIsFlowSecure(t *testing.T) {
-	mockOIDCClient, oidcServiceConfiguration, sessionStorage, redisClient, logger := setupOIDCService()
-	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage, redisClient)
+	mockOIDCClient, oidcServiceConfiguration, sessionStorage, logger := setupOIDCService()
+	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage)
 
 	// static Token to be tested
 	idToken := json.RawMessage(`
@@ -293,13 +264,13 @@ func TestIsFlowSecure(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
-	mockOIDCClient, oidcServiceConfiguration, sessionStorage, redisClient, logger := setupOIDCService()
+	mockOIDCClient, oidcServiceConfiguration, sessionStorage, logger := setupOIDCService()
 	// custom config
 	os.Setenv("HMAC_SECRET", "developers@ydata.ai")
 	oidcServiceConfiguration.LoadFromEnvVars()
 	oidcServiceConfiguration.UserJWTExpires = time.Duration(time.Minute)
 
-	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage, redisClient)
+	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage)
 
 	customClaims := models.CustomClaims{
 		Name:  "Azory",
@@ -317,7 +288,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestDecode(t *testing.T) {
-	mockOIDCClient, oidcServiceConfiguration, sessionStorage, redisClient, logger := setupOIDCService()
+	mockOIDCClient, oidcServiceConfiguration, sessionStorage, logger := setupOIDCService()
 	oidcServiceConfiguration.LoadFromEnvVars()
 
 	testCases := []struct {
@@ -373,7 +344,7 @@ func TestDecode(t *testing.T) {
 
 	for _, tt := range testCases {
 		oidcServiceConfiguration.HMACSecret = []byte(tt.signature)
-		osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage, redisClient)
+		osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage)
 
 		decodedToken, err := osvc.Decode(tt.token)
 		if tt.errorReason == nil {
@@ -390,8 +361,8 @@ func TestDecode(t *testing.T) {
 
 func TestClaims(t *testing.T) {
 	ctx := context.Background()
-	mockOIDCClient, oidcServiceConfiguration, sessionStorage, redisClient, logger := setupOIDCService()
-	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage, redisClient)
+	mockOIDCClient, oidcServiceConfiguration, sessionStorage, logger := setupOIDCService()
+	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage)
 
 	testCases := []struct {
 		code string
