@@ -256,7 +256,7 @@ func (rc RESTController) skipURLsMiddleware() gin.HandlerFunc {
 	}
 }
 
-// GetToken ...
+// GetToken returns data from the Vault.
 func (rc RESTController) GetToken(c *gin.Context) {
 	r, w := c.Request, c.Writer
 	path := strings.TrimPrefix(r.URL.Path, rc.configuration.ProvisionTokenURLPrefix)
@@ -271,7 +271,7 @@ func (rc RESTController) GetToken(c *gin.Context) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// ListTokens ...
+// ListTokens returns a data list from the Vault.
 func (rc RESTController) ListTokens(c *gin.Context) {
 	r, w := c.Request, c.Writer
 	path := strings.TrimPrefix(r.URL.Path, rc.configuration.ProvisionTokenURLPrefix)
@@ -286,7 +286,7 @@ func (rc RESTController) ListTokens(c *gin.Context) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// CreateToken ...
+// CreateToken stores data into Vault.
 func (rc RESTController) CreateToken(c *gin.Context) {
 	r, w := c.Request, c.Writer
 
@@ -317,7 +317,7 @@ func (rc RESTController) CreateToken(c *gin.Context) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-// DeleteToken ...
+// DeleteToken removes a data from the Vault.
 func (rc RESTController) DeleteToken(c *gin.Context) {
 	r, w := c.Request, c.Writer
 	path := strings.TrimPrefix(r.URL.Path, rc.configuration.ProvisionTokenURLPrefix)
