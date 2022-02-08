@@ -187,75 +187,6 @@ func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// getCredentials is responsible for simply getting credentials.
-func (rc RESTController) getCredentials(r *http.Request) (string, error) {
-	rc.logger.Info("Get request credentials...")
-	for _, auth := range rc.credentials {
-		token, err := auth.Extract(r)
-		if authErrors.IsTokenNotFound(err) {
-			continue
-		}
-		// credentials sent.
-		rc.logger.Debug(token)
-		return token, nil
-	}
-	// back to start OIDC flow.
-	return "", authErrors.ErrorTokenNotFound
-}
-
-func (rc RESTController) setSessionCookie(w http.ResponseWriter, r *http.Request, name, value string) {
-	c := &http.Cookie{
-		Name:     name,
-		Value:    value,
-		MaxAge:   rc.configuration.CookieMaxAge,
-		Path:     rc.configuration.AuthServiceURL,
-		Secure:   r.TLS != nil,
-		HttpOnly: false,
-	}
-	http.SetCookie(w, c)
-}
-
-func (rc RESTController) deleteSessionCookie(w http.ResponseWriter, name string) {
-	http.SetCookie(w, &http.Cookie{Name: name, MaxAge: -1, Path: rc.configuration.AuthServiceURL})
-}
-
-func (rc RESTController) errorResponse(w http.ResponseWriter, code int, err error) {
-	rc.logger.Error(err)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	jsonBody := models.ErrorResponse{
-		Message:   err.Error(),
-		Timestamp: time.Now(),
-	}
-	json.NewEncoder(w).Encode(jsonBody)
-}
-
-func (rc RESTController) forbidden(w http.ResponseWriter, err error) {
-	rc.errorResponse(w, http.StatusForbidden, err)
-}
-
-func (rc RESTController) internalServerError(w http.ResponseWriter, err error) {
-	rc.errorResponse(w, http.StatusInternalServerError, err)
-}
-
-func (rc RESTController) badRequest(w http.ResponseWriter, err error) {
-	rc.errorResponse(w, http.StatusBadRequest, err)
-}
-
-// skipURLsMiddleware is a middleware that skips all requests configured in SKIP_URL.
-func (rc RESTController) skipURLsMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		for _, skipURL := range rc.configuration.SkipURLs {
-			if strings.HasPrefix(c.Request.URL.Path, skipURL) {
-				rc.logger.Infof("URL %s was skipped. Accepted without authorization.", c.Request.URL.Path)
-				c.Abort()
-				return
-			}
-		}
-		c.Next()
-	}
-}
-
 // GetToken returns data from the Vault.
 func (rc RESTController) GetToken(c *gin.Context) {
 	r, w := c.Request, c.Writer
@@ -359,4 +290,73 @@ func (rc RESTController) DeleteToken(c *gin.Context) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// getCredentials is responsible for simply getting credentials.
+func (rc RESTController) getCredentials(r *http.Request) (string, error) {
+	rc.logger.Info("Get request credentials...")
+	for _, auth := range rc.credentials {
+		token, err := auth.Extract(r)
+		if authErrors.IsTokenNotFound(err) {
+			continue
+		}
+		// credentials sent.
+		rc.logger.Debug(token)
+		return token, nil
+	}
+	// back to start OIDC flow.
+	return "", authErrors.ErrorTokenNotFound
+}
+
+func (rc RESTController) setSessionCookie(w http.ResponseWriter, r *http.Request, name, value string) {
+	c := &http.Cookie{
+		Name:     name,
+		Value:    value,
+		MaxAge:   rc.configuration.CookieMaxAge,
+		Path:     rc.configuration.AuthServiceURL,
+		Secure:   r.TLS != nil,
+		HttpOnly: false,
+	}
+	http.SetCookie(w, c)
+}
+
+func (rc RESTController) deleteSessionCookie(w http.ResponseWriter, name string) {
+	http.SetCookie(w, &http.Cookie{Name: name, MaxAge: -1, Path: rc.configuration.AuthServiceURL})
+}
+
+func (rc RESTController) errorResponse(w http.ResponseWriter, code int, err error) {
+	rc.logger.Error(err)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	jsonBody := models.ErrorResponse{
+		Message:   err.Error(),
+		Timestamp: time.Now(),
+	}
+	json.NewEncoder(w).Encode(jsonBody)
+}
+
+func (rc RESTController) forbidden(w http.ResponseWriter, err error) {
+	rc.errorResponse(w, http.StatusForbidden, err)
+}
+
+func (rc RESTController) internalServerError(w http.ResponseWriter, err error) {
+	rc.errorResponse(w, http.StatusInternalServerError, err)
+}
+
+func (rc RESTController) badRequest(w http.ResponseWriter, err error) {
+	rc.errorResponse(w, http.StatusBadRequest, err)
+}
+
+// skipURLsMiddleware is a middleware that skips all requests configured in SKIP_URL.
+func (rc RESTController) skipURLsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		for _, skipURL := range rc.configuration.SkipURLs {
+			if strings.HasPrefix(c.Request.URL.Path, skipURL) {
+				rc.logger.Infof("URL %s was skipped. Accepted without authorization.", c.Request.URL.Path)
+				c.Abort()
+				return
+			}
+		}
+		c.Next()
+	}
 }
