@@ -31,7 +31,7 @@ type OIDCService interface {
 	GetOIDCProviderURL() (string, error)
 	Claims(ctx context.Context, code string) (models.Tokens, error)
 	IsFlowSecure(state string, token models.Tokens) (bool, error)
-	Create(cc models.CustomClaims) (models.CustomClaims, error)
+	Create(cc models.CustomClaims, exp time.Duration) (models.CustomClaims, error)
 	Decode(tokenString string) (models.UserInfo, error)
 }
 
@@ -105,15 +105,16 @@ func (osvc *OAuth2OIDCService) IsFlowSecure(state string, token models.Tokens) (
 }
 
 // Create a new JWT token based on Custom Claims models.
-func (osvc *OAuth2OIDCService) Create(cc models.CustomClaims) (models.CustomClaims, error) {
+func (osvc *OAuth2OIDCService) Create(cc models.CustomClaims, exp time.Duration) (models.CustomClaims, error) {
 	var err error
 
 	customClaims := models.CustomClaims{
+		UID:     cc.UID,
 		Name:    cc.Name,
 		Email:   cc.Email,
 		Picture: cc.Picture,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(osvc.configuration.UserJWTExpires))),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(exp)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}

@@ -3,6 +3,9 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -20,10 +23,11 @@ import (
 
 // RESTController defines rest controller.
 type RESTController struct {
-	configuration configurations.RESTControllerConfiguration
-	oidcService   services.OIDCService
-	credentials   []handlers.CredentialsHandler
-	logger        logging.Logger
+	configuration         configurations.RESTControllerConfiguration
+	oidcService           services.OIDCService
+	credentials           []handlers.CredentialsHandler
+	provisionTokenService services.ProvisionTokens
+	logger                logging.Logger
 }
 
 // NewRESTController initializes rest controller.
@@ -32,12 +36,14 @@ func NewRESTController(
 	configuration configurations.RESTControllerConfiguration,
 	oidcService services.OIDCService,
 	credentials []handlers.CredentialsHandler,
+	provisionTokenService services.ProvisionTokens,
 ) RESTController {
 	return RESTController{
-		configuration: configuration,
-		oidcService:   oidcService,
-		credentials:   credentials,
-		logger:        logger,
+		configuration:         configuration,
+		oidcService:           oidcService,
+		credentials:           credentials,
+		provisionTokenService: provisionTokenService,
+		logger:                logger,
 	}
 }
 
@@ -45,19 +51,25 @@ func NewRESTController(
 func (rc RESTController) Boot(s *server.Server) {
 	s.Router.Use(rc.skipURLsMiddleware())
 
-	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.CheckForAuthentication))
+	s.Router.GET(rc.configuration.AuthServiceURL, rc.CheckForAuthentication)
 	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.OIDCProviderCallback))
 	s.Router.GET(rc.configuration.UserInfoURL, gin.WrapF(rc.UserInfo))
 	s.Router.POST(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
 
-	s.Router.Any("/:forward", gin.WrapF(rc.CheckForAuthentication))
-	s.Router.Any("/:forward/*any", gin.WrapF(rc.CheckForAuthentication))
+	provisionTokenURL := fmt.Sprintf("%s/:path/*data", rc.configuration.ProvisionTokenURLPrefix)
+	s.Router.GET(provisionTokenURL, rc.CheckForAuthentication, rc.GetToken)
+	s.Router.POST(provisionTokenURL, rc.CheckForAuthentication, rc.CreateToken)
+	s.Router.DELETE(provisionTokenURL, rc.CheckForAuthentication, rc.DeleteToken)
+
+	s.Router.Any("/:forward", rc.CheckForAuthentication)
+	s.Router.Any("/:forward/*any", rc.CheckForAuthentication)
 }
 
 // CheckForAuthentication is responsible for knowing if the user already has a valid credential or not.
 // If so, forward 200 OK + UserID Headers.
 // If not, begin OIDC Flow.
-func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.Request) {
+func (rc RESTController) CheckForAuthentication(c *gin.Context) {
+	r, w := c.Request, c.Writer
 	// workflow to identify if there is a token present.
 	token, err := rc.getCredentials(r)
 	// if a token is not found, the OIDC flow will be started.
@@ -76,8 +88,7 @@ func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.R
 	}
 	// if a token was passed but it is not valid, the flow must be stopped.
 	if err != nil {
-		rc.logger.Errorf("an error occurred while decoding token: %v", err)
-		rc.forbiddenResponse(w, err)
+		rc.forbidden(w, fmt.Errorf("an error occurred while decoding token: %v", err))
 		return
 	}
 
@@ -88,6 +99,7 @@ func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.R
 	// set UserID Header + 200 OK
 	w.Header().Set(rc.configuration.UserIDHeader, userInfo.Email)
 	w.WriteHeader(http.StatusOK)
+	c.Next()
 }
 
 // RedirectToOIDCProvider is the handler responsible for redirecting to the OIDC Provider.
@@ -95,7 +107,6 @@ func (rc RESTController) RedirectToOIDCProvider(w http.ResponseWriter, r *http.R
 	rc.logger.Info("Starting OIDC flow")
 	oidcProviderURL, err := rc.oidcService.GetOIDCProviderURL()
 	if err != nil {
-		rc.logger.Error(err.Error())
 		rc.internalServerError(w, err)
 		return
 	}
@@ -117,8 +128,7 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	// Creates an OAuth2 token with the auth code returned from the OIDC Provider.
 	token, err := rc.oidcService.Claims(ctx, codeProvider)
 	if err != nil {
-		rc.logger.Error(err)
-		rc.forbiddenResponse(w, err)
+		rc.forbidden(w, err)
 		return
 	}
 
@@ -126,20 +136,18 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	// with the callback from the OIDC Provider.
 	safe, err := rc.oidcService.IsFlowSecure(stateProvider, token)
 	if !safe {
-		rc.logger.Error(err)
-		rc.forbiddenResponse(w, err)
+		rc.forbidden(w, err)
 		return
 	}
 
 	// If the flow is secure, a JWT will be created...
-	jwt, err := rc.oidcService.Create(token.CustomClaims)
+	jwt, err := rc.oidcService.Create(token.CustomClaims, rc.configuration.UserJWTExpires)
 	if err != nil {
-		rc.logger.Errorf("an error occurred while creating a JWT. Error: %v", err)
-		rc.forbiddenResponse(w, err)
+		rc.forbidden(w, fmt.Errorf("an error occurred while creating a JWT. Error: %v", err))
 		return
 	}
 	// ...set a session cookie.
-	rc.setSessionCookie(w, r, "access_token", jwt.AccessToken)
+	rc.setSessionCookie(w, r, rc.configuration.AccessTokenCookie, jwt.AccessToken)
 
 	rc.logger.Infof("Redirecting back to %s", rc.configuration.AuthServiceURL)
 	http.Redirect(w, r, rc.configuration.AuthServiceURL, http.StatusFound)
@@ -151,13 +159,12 @@ func (rc RESTController) UserInfo(w http.ResponseWriter, r *http.Request) {
 	token, err := rc.getCredentials(r)
 	// if a token is not found, return Forbidden.
 	if authErrors.IsTokenNotFound(err) {
-		rc.forbiddenResponse(w, err)
+		rc.forbidden(w, err)
 		return
 	}
 	userInfo, err := rc.oidcService.Decode(token)
 	if err != nil {
-		rc.logger.Errorf("an error occurred while decoding token: %v", err)
-		rc.forbiddenResponse(w, err)
+		rc.forbidden(w, fmt.Errorf("an error occurred while decoding token: %v", err))
 		return
 	}
 
@@ -172,11 +179,11 @@ func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
 	_, err := rc.getCredentials(r)
 	// if a token is not found, return Forbidden.
 	if authErrors.IsTokenNotFound(err) {
-		rc.forbiddenResponse(w, err)
+		rc.forbidden(w, err)
 		return
 	}
 
-	rc.deleteSessionCookie(w, "access_token")
+	rc.deleteSessionCookie(w, rc.configuration.AccessTokenCookie)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -213,6 +220,7 @@ func (rc RESTController) deleteSessionCookie(w http.ResponseWriter, name string)
 }
 
 func (rc RESTController) errorResponse(w http.ResponseWriter, code int, err error) {
+	rc.logger.Error(err)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	jsonBody := models.ErrorResponse{
@@ -222,12 +230,16 @@ func (rc RESTController) errorResponse(w http.ResponseWriter, code int, err erro
 	json.NewEncoder(w).Encode(jsonBody)
 }
 
-func (rc RESTController) forbiddenResponse(w http.ResponseWriter, err error) {
+func (rc RESTController) forbidden(w http.ResponseWriter, err error) {
 	rc.errorResponse(w, http.StatusForbidden, err)
 }
 
 func (rc RESTController) internalServerError(w http.ResponseWriter, err error) {
 	rc.errorResponse(w, http.StatusInternalServerError, err)
+}
+
+func (rc RESTController) badRequest(w http.ResponseWriter, err error) {
+	rc.errorResponse(w, http.StatusBadRequest, err)
 }
 
 // skipURLsMiddleware is a middleware that skips all requests configured in SKIP_URL.
@@ -242,4 +254,109 @@ func (rc RESTController) skipURLsMiddleware() gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+// GetToken ...
+func (rc RESTController) GetToken(c *gin.Context) {
+	r, w := c.Request, c.Writer
+	path := strings.TrimPrefix(r.URL.Path, rc.configuration.ProvisionTokenURLPrefix)
+
+	data, err := rc.provisionTokenService.Get(path)
+	if err != nil {
+		rc.badRequest(w, err)
+		return
+	}
+
+	json.NewEncoder(w).Encode(data)
+	w.WriteHeader(http.StatusOK)
+}
+
+// ListTokens ...
+func (rc RESTController) ListTokens(c *gin.Context) {
+	r, w := c.Request, c.Writer
+	path := strings.TrimPrefix(r.URL.Path, rc.configuration.ProvisionTokenURLPrefix)
+
+	data, err := rc.provisionTokenService.List(path)
+	if err != nil {
+		rc.badRequest(w, err)
+		return
+	}
+
+	json.NewEncoder(w).Encode(data)
+	w.WriteHeader(http.StatusOK)
+}
+
+// CreateToken ...
+func (rc RESTController) CreateToken(c *gin.Context) {
+	r, w := c.Request, c.Writer
+
+	var newProvisionToken models.ProvisionTokenRequest
+	reqBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		rc.internalServerError(w, err)
+		return
+	}
+	json.Unmarshal(reqBody, &newProvisionToken)
+
+	path := strings.TrimPrefix(r.URL.Path, rc.configuration.ProvisionTokenURLPrefix)
+
+	data, err := rc.provisionTokenService.Create(path, newProvisionToken)
+	if err != nil {
+		rc.badRequest(w, err)
+		return
+	}
+
+	expiration := time.Duration(newProvisionToken.Expiration) * time.Hour
+	jsonBody, err := rc.oidcService.Create(data, expiration)
+	if err != nil {
+		rc.internalServerError(w, err)
+		return
+	}
+
+	json.NewEncoder(w).Encode(jsonBody)
+	w.WriteHeader(http.StatusCreated)
+}
+
+// DeleteToken ...
+func (rc RESTController) DeleteToken(c *gin.Context) {
+	r, w := c.Request, c.Writer
+	path := strings.TrimPrefix(r.URL.Path, rc.configuration.ProvisionTokenURLPrefix)
+	tokenToBeDeleted := c.Query("token")
+	if tokenToBeDeleted == "" {
+		rc.badRequest(w, errors.New("no token was provided in the query string"))
+		return
+	}
+
+	data, err := rc.provisionTokenService.Get(path)
+	if err != nil {
+		rc.badRequest(w, err)
+		return
+	}
+	rc.logger.Info(data)
+
+	// check if the token not exists...
+	_, ok := data[tokenToBeDeleted]
+	if !ok {
+		rc.badRequest(w, fmt.Errorf("%s token not found", tokenToBeDeleted))
+		return
+	}
+	// ... if exists, delete it.
+	delete(data, tokenToBeDeleted)
+	err = rc.provisionTokenService.Delete(path)
+	if err != nil {
+		rc.logger.Error(err)
+		rc.badRequest(w, err)
+		return
+	}
+	rc.logger.Infof("'%s' token has been deleted.", tokenToBeDeleted)
+
+	for uid, data := range data {
+		err = rc.provisionTokenService.Update(path, uid, data)
+		if err != nil {
+			rc.badRequest(w, err)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

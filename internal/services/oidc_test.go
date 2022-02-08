@@ -51,10 +51,12 @@ func setupLogger() logging.Logger {
 }
 
 // setupOIDCService is a helper, because it's necessary to call many times.
-func setupOIDCService() (clients.OIDCClient, configurations.OIDCServiceConfiguration, *storages.SessionStorage,
+func setupOIDCService() (clients.OIDCClient, configurations.OIDCServiceConfiguration,
+	*storages.SessionStorage,
 	logging.Logger) {
 	logger := setupLogger()
 	oidcServiceConfiguration := configurations.OIDCServiceConfiguration{}
+
 	sessionStorage := storages.NewSessionStorage()
 	mockOIDCClient := NewMockOIDCClient()
 	return mockOIDCClient, oidcServiceConfiguration, sessionStorage, logger
@@ -268,7 +270,7 @@ func TestCreate(t *testing.T) {
 	// custom config
 	os.Setenv("HMAC_SECRET", "developers@ydata.ai")
 	oidcServiceConfiguration.LoadFromEnvVars()
-	oidcServiceConfiguration.UserJWTExpires = time.Duration(time.Minute)
+	UserJWTExpires := time.Duration(time.Minute)
 
 	osvc := NewOAuth2OIDCService(logger, oidcServiceConfiguration, mockOIDCClient, sessionStorage)
 
@@ -277,7 +279,7 @@ func TestCreate(t *testing.T) {
 		Email: "developers@ydata.ai",
 	}
 
-	token, err := osvc.Create(customClaims)
+	token, err := osvc.Create(customClaims, UserJWTExpires)
 
 	logger.Warnf("[OK] ✔️ Token created: %s", token.AccessToken)
 	assert.NotEmpty(t, token)

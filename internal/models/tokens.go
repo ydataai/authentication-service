@@ -36,6 +36,7 @@ type OAuth2Token struct {
 
 // CustomClaims defines the custom claims struct.
 type CustomClaims struct {
+	UID         string `json:"uid,omitempty"`
 	AccessToken string `json:"access_token,omitempty"`
 	Name        string `json:"name,omitempty"`
 	Email       string `json:"email,omitempty"`
@@ -56,4 +57,10 @@ type CustomClaims struct {
 type UserInfo struct {
 	Name  string `json:"name"`
 	Email string `json:"email"`
+}
+
+// ProvisionTokenRequest defines a ProvisionToken struct.
+type ProvisionTokenRequest struct {
+	Name       string `json:"name"`
+	Expiration int64  `json:"expiration"`
 }

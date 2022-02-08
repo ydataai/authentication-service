@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/ydataai/authentication-service/internal/configurations"
 	authErrors "github.com/ydataai/authentication-service/internal/errors"
 	"github.com/ydataai/go-core/pkg/common/logging"
 )
@@ -15,7 +16,10 @@ func TestCookieExtract(t *testing.T) {
 	loggerConfig := logging.LoggerConfiguration{}
 	loggerConfig.Level = "warn"
 	logger := logging.NewLogger(loggerConfig)
-	cc := NewCookieCredentialsHandler(logger)
+
+	cookieCredentialsHandlerConfiguration := configurations.CookieCredentialsHandlerConfiguration{}
+	cookieCredentialsHandlerConfiguration.LoadFromEnvVars()
+	cc := NewCookieCredentialsHandler(logger, cookieCredentialsHandlerConfiguration)
 
 	mockRequestWithCookie := func(key, value string) *http.Request {
 		return &http.Request{Header: http.Header{
