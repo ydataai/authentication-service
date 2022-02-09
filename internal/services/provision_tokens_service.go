@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	coreClients "github.com/ydataai/go-core/pkg/common/clients"
@@ -45,9 +46,9 @@ func (pt ProvisionTokens) Create(path string, ptr models.ProvisionTokenRequest) 
 	}
 
 	expirationDay := time.Now().Add(time.Duration(ptr.Expiration) * (time.Hour * 24))
-	uuid := uuid.New().String()
+	tokenID := uuid.New().String()
 	data := VaultData{
-		uuid: map[string]interface{}{
+		tokenID: map[string]interface{}{
 			"name":       ptr.Name,
 			"expiration": expirationDay.Unix(),
 		},
@@ -57,20 +58,46 @@ func (pt ProvisionTokens) Create(path string, ptr models.ProvisionTokenRequest) 
 	}
 
 	return models.CustomClaims{
-		UID:  uuid,
+		UUID: tokenID,
 		Name: ptr.Name,
 	}, nil
 }
 
 // Update stores updated data into Vault.
-func (pt ProvisionTokens) Update(path string, uid string, data interface{}) error {
+func (pt ProvisionTokens) Update(path string, uuid string, data interface{}) error {
 	newData := VaultData{
-		uid: data,
+		uuid: data,
 	}
 	return pt.vaultClient.Patch(path, newData)
 }
 
 // Delete removes a data from the Vault.
-func (pt ProvisionTokens) Delete(path string) error {
-	return pt.vaultClient.Delete(path)
+func (pt ProvisionTokens) Delete(path, tokenID string) error {
+	data, err := pt.Get(path)
+	if err != nil {
+		return err
+	}
+	pt.logger.Info(data)
+
+	// check if the token not exists...
+	_, ok := data[tokenID]
+	if !ok {
+		return fmt.Errorf("%s token not found", tokenID)
+	}
+	// ... if exists, delete it.
+	delete(data, tokenID)
+	err = pt.vaultClient.Delete(path)
+	if err != nil {
+		return err
+	}
+	pt.logger.Infof("'%s' token has been deleted.", tokenID)
+
+	for uid, data := range data {
+		err = pt.Update(path, uid, data)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

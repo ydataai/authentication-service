@@ -109,7 +109,7 @@ func (osvc *OAuth2OIDCService) Create(cc models.CustomClaims, exp time.Duration)
 	var err error
 
 	customClaims := models.CustomClaims{
-		UID:     cc.UID,
+		UUID:    cc.UUID,
 		Name:    cc.Name,
 		Email:   cc.Email,
 		Picture: cc.Picture,

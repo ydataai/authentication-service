@@ -56,10 +56,14 @@ func (rc RESTController) Boot(s *server.Server) {
 	s.Router.GET(rc.configuration.UserInfoURL, gin.WrapF(rc.UserInfo))
 	s.Router.POST(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
 
-	provisionTokenURL := fmt.Sprintf("%s/:path/*data", rc.configuration.ProvisionTokenURLPrefix)
-	s.Router.GET(provisionTokenURL, rc.CheckForAuthentication, rc.GetToken)
-	s.Router.POST(provisionTokenURL, rc.CheckForAuthentication, rc.CreateToken)
-	s.Router.DELETE(provisionTokenURL, rc.CheckForAuthentication, rc.DeleteToken)
+	profileTokensURL := "/auth/profiles/:uuid/tokens"
+	s.Router.GET(profileTokensURL, rc.CheckForAuthentication, rc.GetToken)
+	s.Router.POST(profileTokensURL, rc.CheckForAuthentication, rc.CreateToken)
+	s.Router.DELETE(profileTokensURL, rc.CheckForAuthentication, rc.DeleteToken)
+	synthesizerTokensURL := "/auth/synthesizers/:uuid/tokens"
+	s.Router.GET(synthesizerTokensURL, rc.CheckForAuthentication, rc.GetToken)
+	s.Router.POST(synthesizerTokensURL, rc.CheckForAuthentication, rc.CreateToken)
+	s.Router.DELETE(synthesizerTokensURL, rc.CheckForAuthentication, rc.DeleteToken)
 
 	s.Router.Any("/:forward", rc.CheckForAuthentication)
 	s.Router.Any("/:forward/*any", rc.CheckForAuthentication)
@@ -190,7 +194,9 @@ func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
 // GetToken returns data from the Vault.
 func (rc RESTController) GetToken(c *gin.Context) {
 	r, w := c.Request, c.Writer
-	path := strings.TrimPrefix(r.URL.Path, rc.configuration.ProvisionTokenURLPrefix)
+	resource := strings.Split(r.URL.Path, "/")[2]
+	uuid := c.Params.ByName("uuid")
+	path := fmt.Sprintf("%s/data/%s", resource, uuid)
 
 	data, err := rc.provisionTokenService.Get(path)
 	if err != nil {
@@ -205,7 +211,9 @@ func (rc RESTController) GetToken(c *gin.Context) {
 // ListTokens returns a data list from the Vault.
 func (rc RESTController) ListTokens(c *gin.Context) {
 	r, w := c.Request, c.Writer
-	path := strings.TrimPrefix(r.URL.Path, rc.configuration.ProvisionTokenURLPrefix)
+	resource := strings.Split(r.URL.Path, "/")[2]
+	uuid := c.Params.ByName("uuid")
+	path := fmt.Sprintf("%s/data/%s", resource, uuid)
 
 	data, err := rc.provisionTokenService.List(path)
 	if err != nil {
@@ -229,7 +237,9 @@ func (rc RESTController) CreateToken(c *gin.Context) {
 	}
 	json.Unmarshal(reqBody, &newProvisionToken)
 
-	path := strings.TrimPrefix(r.URL.Path, rc.configuration.ProvisionTokenURLPrefix)
+	resource := strings.Split(r.URL.Path, "/")[2]
+	uuid := c.Params.ByName("uuid")
+	path := fmt.Sprintf("%s/data/%s", resource, uuid)
 
 	data, err := rc.provisionTokenService.Create(path, newProvisionToken)
 	if err != nil {
@@ -251,42 +261,19 @@ func (rc RESTController) CreateToken(c *gin.Context) {
 // DeleteToken removes a data from the Vault.
 func (rc RESTController) DeleteToken(c *gin.Context) {
 	r, w := c.Request, c.Writer
-	path := strings.TrimPrefix(r.URL.Path, rc.configuration.ProvisionTokenURLPrefix)
-	tokenToBeDeleted := c.Query("token")
+	resource := strings.Split(r.URL.Path, "/")[2]
+	uuid := c.Params.ByName("uuid")
+	path := fmt.Sprintf("%s/data/%s", resource, uuid)
+
+	tokenToBeDeleted := c.Query("token_id")
 	if tokenToBeDeleted == "" {
 		rc.badRequest(w, errors.New("no token was provided in the query string"))
 		return
 	}
 
-	data, err := rc.provisionTokenService.Get(path)
+	err := rc.provisionTokenService.Delete(path, tokenToBeDeleted)
 	if err != nil {
 		rc.badRequest(w, err)
-		return
-	}
-	rc.logger.Info(data)
-
-	// check if the token not exists...
-	_, ok := data[tokenToBeDeleted]
-	if !ok {
-		rc.badRequest(w, fmt.Errorf("%s token not found", tokenToBeDeleted))
-		return
-	}
-	// ... if exists, delete it.
-	delete(data, tokenToBeDeleted)
-	err = rc.provisionTokenService.Delete(path)
-	if err != nil {
-		rc.logger.Error(err)
-		rc.badRequest(w, err)
-		return
-	}
-	rc.logger.Infof("'%s' token has been deleted.", tokenToBeDeleted)
-
-	for uid, data := range data {
-		err = rc.provisionTokenService.Update(path, uid, data)
-		if err != nil {
-			rc.badRequest(w, err)
-			return
-		}
 	}
 
 	w.WriteHeader(http.StatusOK)

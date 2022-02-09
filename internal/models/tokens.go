@@ -36,7 +36,7 @@ type OAuth2Token struct {
 
 // CustomClaims defines the custom claims struct.
 type CustomClaims struct {
-	UID         string `json:"uid,omitempty"`
+	UUID        string `json:"uuid,omitempty"`
 	AccessToken string `json:"access_token,omitempty"`
 	Name        string `json:"name,omitempty"`
 	Email       string `json:"email,omitempty"`
