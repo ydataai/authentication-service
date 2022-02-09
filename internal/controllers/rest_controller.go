@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -75,7 +76,7 @@ func (rc RESTController) Boot(s *server.Server) {
 func (rc RESTController) CheckForAuthentication(c *gin.Context) {
 	r, w := c.Request, c.Writer
 	// workflow to identify if there is a token present.
-	token, err := rc.getCredentials(r)
+	token, authType, err := rc.getCredentials(r)
 	// if a token is not found, the OIDC flow will be started.
 	if authErrors.IsTokenNotFound(err) {
 		rc.RedirectToOIDCProvider(w, r)
@@ -86,6 +87,11 @@ func (rc RESTController) CheckForAuthentication(c *gin.Context) {
 	// check if the token is expired or signature invalid.
 	// if so, the OIDC flow will be started to recreate a token.
 	if authErrors.IsTokenExpired(err) || authErrors.IsTokenSignatureInvalid(err) {
+		if authType == "HeaderCredentialsHandler" {
+			rc.forbidden(w, err)
+			c.Abort()
+			return
+		}
 		rc.logger.Warn(err)
 		rc.RedirectToOIDCProvider(w, r)
 		return
@@ -160,13 +166,22 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 // UserInfo shows user info from the OIDC Provider.
 func (rc RESTController) UserInfo(w http.ResponseWriter, r *http.Request) {
 	// workflow to identify if there is a token present.
-	token, err := rc.getCredentials(r)
+	token, authType, err := rc.getCredentials(r)
 	// if a token is not found, return Forbidden.
 	if authErrors.IsTokenNotFound(err) {
 		rc.forbidden(w, err)
 		return
 	}
 	userInfo, err := rc.oidcService.Decode(token)
+	if authErrors.IsTokenExpired(err) || authErrors.IsTokenSignatureInvalid(err) {
+		if authType == "HeaderCredentialsHandler" {
+			rc.forbidden(w, err)
+			return
+		}
+		rc.logger.Warn(err)
+		rc.RedirectToOIDCProvider(w, r)
+		return
+	}
 	if err != nil {
 		rc.forbidden(w, fmt.Errorf("an error occurred while decoding token: %v", err))
 		return
@@ -180,13 +195,16 @@ func (rc RESTController) UserInfo(w http.ResponseWriter, r *http.Request) {
 // Logout is responsible for revoking a token and deleting an authentication cookie.
 func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
 	// workflow to identify if there is a token present.
-	_, err := rc.getCredentials(r)
+	_, authType, err := rc.getCredentials(r)
 	// if a token is not found, return Forbidden.
 	if authErrors.IsTokenNotFound(err) {
 		rc.forbidden(w, err)
 		return
 	}
 
+	if authType == "HeaderCredentialsHandler" {
+		rc.badRequest(w, errors.New("unable to logout without a cookie"))
+	}
 	rc.deleteSessionCookie(w, rc.configuration.AccessTokenCookie)
 	w.WriteHeader(http.StatusOK)
 }
@@ -280,19 +298,19 @@ func (rc RESTController) DeleteToken(c *gin.Context) {
 }
 
 // getCredentials is responsible for simply getting credentials.
-func (rc RESTController) getCredentials(r *http.Request) (string, error) {
+func (rc RESTController) getCredentials(r *http.Request) (string, string, error) {
 	rc.logger.Info("Get request credentials...")
 	for _, auth := range rc.credentials {
 		token, err := auth.Extract(r)
 		if authErrors.IsTokenNotFound(err) {
 			continue
 		}
-		// credentials sent.
 		rc.logger.Debug(token)
-		return token, nil
+		// credentials sent.
+		return token, reflect.TypeOf(auth).Elem().Name(), nil
 	}
 	// back to start OIDC flow.
-	return "", authErrors.ErrorTokenNotFound
+	return "", "", authErrors.ErrorTokenNotFound
 }
 
 func (rc RESTController) setSessionCookie(w http.ResponseWriter, r *http.Request, name, value string) {
