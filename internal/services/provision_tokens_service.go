@@ -11,6 +11,7 @@ import (
 	"github.com/ydataai/go-core/pkg/common/logging"
 )
 
+// VaultData stores data from Vault.
 type VaultData map[string]interface{}
 
 // ProvisionTokens defines a provision token struct.
