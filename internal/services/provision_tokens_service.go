@@ -30,13 +30,23 @@ func NewProvisionTokens(logger logging.Logger, vaultClient *coreClients.VaultCli
 }
 
 // Get returns data from the Vault.
-func (pt ProvisionTokens) Get(path string) (VaultData, error) {
-	return pt.vaultClient.Get(path)
+func (pt ProvisionTokens) Get(path, tokenID string) (VaultData, error) {
+	data, err := pt.vaultClient.Get(path)
+	if err != nil {
+		return nil, err
+	}
+	// check if the token not exists...
+	_, ok := data[tokenID]
+	if !ok {
+		return nil, fmt.Errorf("%s token not found", tokenID)
+	}
+
+	return VaultData{tokenID: data[tokenID]}, nil
 }
 
 // List returns a data list from the Vault.
-func (pt ProvisionTokens) List(path string) (interface{}, error) {
-	return pt.vaultClient.List(path)
+func (pt ProvisionTokens) List(path string) (VaultData, error) {
+	return pt.vaultClient.Get(path)
 }
 
 // Create stores data into Vault.
@@ -45,12 +55,12 @@ func (pt ProvisionTokens) Create(path string, ptr models.ProvisionTokenRequest) 
 		return models.CustomClaims{}, errors.New("an error occurred while provisioning the token")
 	}
 
-	expirationDay := time.Now().Add(time.Duration(ptr.Expiration) * (time.Hour * 24))
+	expirationDays := time.Now().Add(time.Duration(ptr.Expiration) * (time.Hour * 24))
 	tokenID := uuid.New().String()
 	data := VaultData{
 		tokenID: map[string]interface{}{
 			"name":       ptr.Name,
-			"expiration": expirationDay.Unix(),
+			"expiration": expirationDays.Unix(),
 		},
 	}
 	if err := pt.vaultClient.Patch(path, data); err != nil {
@@ -63,8 +73,8 @@ func (pt ProvisionTokens) Create(path string, ptr models.ProvisionTokenRequest) 
 	}, nil
 }
 
-// Update stores updated data into Vault.
-func (pt ProvisionTokens) Update(path string, uuid string, data interface{}) error {
+// Patch stores aditional data into Vault.
+func (pt ProvisionTokens) Patch(path string, uuid string, data interface{}) error {
 	newData := VaultData{
 		uuid: data,
 	}
@@ -73,7 +83,7 @@ func (pt ProvisionTokens) Update(path string, uuid string, data interface{}) err
 
 // Delete removes a data from the Vault.
 func (pt ProvisionTokens) Delete(path, tokenID string) error {
-	data, err := pt.Get(path)
+	data, err := pt.List(path)
 	if err != nil {
 		return err
 	}
@@ -93,7 +103,7 @@ func (pt ProvisionTokens) Delete(path, tokenID string) error {
 	pt.logger.Infof("'%s' token has been deleted.", tokenID)
 
 	for uid, data := range data {
-		err = pt.Update(path, uid, data)
+		err = pt.Patch(path, uid, data)
 		if err != nil {
 			return err
 		}

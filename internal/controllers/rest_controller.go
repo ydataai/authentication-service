@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"reflect"
 	"strings"
@@ -57,14 +56,16 @@ func (rc RESTController) Boot(s *server.Server) {
 	s.Router.GET(rc.configuration.UserInfoURL, gin.WrapF(rc.UserInfo))
 	s.Router.POST(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
 
-	profileTokensURL := "/auth/profiles/:uuid/tokens"
-	s.Router.GET(profileTokensURL, rc.CheckForAuthentication, rc.GetToken)
-	s.Router.POST(profileTokensURL, rc.CheckForAuthentication, rc.CreateToken)
-	s.Router.DELETE(profileTokensURL, rc.CheckForAuthentication, rc.DeleteToken)
-	synthesizerTokensURL := "/auth/synthesizers/:uuid/tokens"
-	s.Router.GET(synthesizerTokensURL, rc.CheckForAuthentication, rc.GetToken)
-	s.Router.POST(synthesizerTokensURL, rc.CheckForAuthentication, rc.CreateToken)
-	s.Router.DELETE(synthesizerTokensURL, rc.CheckForAuthentication, rc.DeleteToken)
+	profileTokensURL := s.Router.Group("/profiles/:profile-uuid")
+	profileTokensURL.GET("/tokens", rc.CheckForAuthentication, rc.ListProfileTokens)
+	profileTokensURL.GET("/tokens/:tokenUUID", rc.CheckForAuthentication, rc.GetProfileToken)
+	profileTokensURL.POST("/tokens", rc.CheckForAuthentication, rc.CreateProfileToken)
+	profileTokensURL.DELETE("/tokens/:tokenUUID", rc.CheckForAuthentication, rc.DeleteProfileToken)
+	synthesizerTokensURL := s.Router.Group("/synthesizers/:synthesizer-uuid")
+	synthesizerTokensURL.GET("/tokens", rc.CheckForAuthentication, rc.ListSynthesizerTokens)
+	synthesizerTokensURL.GET("/tokens/:tokenUUID", rc.CheckForAuthentication, rc.GetSynthesizerToken)
+	synthesizerTokensURL.POST("/tokens", rc.CheckForAuthentication, rc.CreateSynthesizerToken)
+	synthesizerTokensURL.DELETE("/tokens/:tokenUUID", rc.CheckForAuthentication, rc.DeleteSynthesizerToken)
 
 	s.Router.Any("/:forward", rc.CheckForAuthentication)
 	s.Router.Any("/:forward/*any", rc.CheckForAuthentication)
@@ -209,92 +210,134 @@ func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// GetToken returns data from the Vault.
-func (rc RESTController) GetToken(c *gin.Context) {
-	r, w := c.Request, c.Writer
-	resource := strings.Split(r.URL.Path, "/")[2]
-	uuid := c.Params.ByName("uuid")
-	path := fmt.Sprintf("%s/data/%s", resource, uuid)
+// GetProfileToken returns profile data from the Vault.
+func (rc RESTController) GetProfileToken(c *gin.Context) {
+	uuid := c.Params.ByName("profile-uuid")
+	path := fmt.Sprintf("profiles/data/%s", uuid)
 
-	data, err := rc.provisionTokenService.Get(path)
+	rc.getToken(c, path)
+}
+
+// GetSynthesizerToken returns synthesizer data from the Vault.
+func (rc RESTController) GetSynthesizerToken(c *gin.Context) {
+	uuid := c.Params.ByName("synthesizer-uuid")
+	path := fmt.Sprintf("synthesizers/data/%s", uuid)
+
+	rc.getToken(c, path)
+}
+
+// ListProfileTokens returns a profile data list from the Vault.
+func (rc RESTController) ListProfileTokens(c *gin.Context) {
+	uuid := c.Params.ByName("profile-uuid")
+	path := fmt.Sprintf("profiles/data/%s", uuid)
+
+	rc.listTokens(c, path)
+}
+
+// ListSynthesizerTokens returns a synthesizer data list from the Vault.
+func (rc RESTController) ListSynthesizerTokens(c *gin.Context) {
+	uuid := c.Params.ByName("synthesizer-uuid")
+	path := fmt.Sprintf("synthesizers/data/%s", uuid)
+
+	rc.listTokens(c, path)
+}
+
+// CreateProfileToken stores profile data into Vault.
+func (rc RESTController) CreateProfileToken(c *gin.Context) {
+	uuid := c.Params.ByName("profile-uuid")
+	path := fmt.Sprintf("profiles/data/%s", uuid)
+
+	rc.createToken(c, path)
+}
+
+// CreateSynthesizerToken stores synthesizer data into Vault.
+func (rc RESTController) CreateSynthesizerToken(c *gin.Context) {
+	uuid := c.Params.ByName("synthesizer-uuid")
+	path := fmt.Sprintf("synthesizers/data/%s", uuid)
+
+	rc.createToken(c, path)
+}
+
+// DeleteProfileToken removes a profile data from the Vault.
+func (rc RESTController) DeleteProfileToken(c *gin.Context) {
+	uuid := c.Params.ByName("profile-uuid")
+	path := fmt.Sprintf("profiles/data/%s", uuid)
+
+	rc.deleteToken(c, path)
+}
+
+// DeleteSynthesizerToken removes a synthesizer data from the Vault.
+func (rc RESTController) DeleteSynthesizerToken(c *gin.Context) {
+	uuid := c.Params.ByName("synthesizer-uuid")
+	path := fmt.Sprintf("synthesizers/data/%s", uuid)
+
+	rc.deleteToken(c, path)
+}
+
+// getToken returns data from the Vault.
+func (rc RESTController) getToken(c *gin.Context, path string) {
+	tokenID := c.Params.ByName("tokenUUID")
+	data, err := rc.provisionTokenService.Get(path, tokenID)
 	if err != nil {
-		rc.badRequest(w, err)
+		rc.notFound(c.Writer, err)
 		return
 	}
 
-	json.NewEncoder(w).Encode(data)
-	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(c.Writer).Encode(data)
+	c.Writer.WriteHeader(http.StatusOK)
 }
 
-// ListTokens returns a data list from the Vault.
-func (rc RESTController) ListTokens(c *gin.Context) {
-	r, w := c.Request, c.Writer
-	resource := strings.Split(r.URL.Path, "/")[2]
-	uuid := c.Params.ByName("uuid")
-	path := fmt.Sprintf("%s/data/%s", resource, uuid)
-
+// listTokens returns a data list from the Vault.
+func (rc RESTController) listTokens(c *gin.Context, path string) {
 	data, err := rc.provisionTokenService.List(path)
 	if err != nil {
-		rc.badRequest(w, err)
+		rc.badRequest(c.Writer, err)
 		return
 	}
 
-	json.NewEncoder(w).Encode(data)
-	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(c.Writer).Encode(data)
+	c.Writer.WriteHeader(http.StatusOK)
 }
 
-// CreateToken stores data into Vault.
-func (rc RESTController) CreateToken(c *gin.Context) {
-	r, w := c.Request, c.Writer
-
+// createToken stores data into Vault.
+func (rc RESTController) createToken(c *gin.Context, path string) {
 	var newProvisionToken models.ProvisionTokenRequest
-	reqBody, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		rc.internalServerError(w, err)
+	if err := json.NewDecoder(c.Request.Body).Decode(&newProvisionToken); err != nil {
+		rc.internalServerError(c.Writer, err)
 		return
 	}
-	json.Unmarshal(reqBody, &newProvisionToken)
-
-	resource := strings.Split(r.URL.Path, "/")[2]
-	uuid := c.Params.ByName("uuid")
-	path := fmt.Sprintf("%s/data/%s", resource, uuid)
 
 	data, err := rc.provisionTokenService.Create(path, newProvisionToken)
 	if err != nil {
-		rc.badRequest(w, err)
+		rc.badRequest(c.Writer, err)
 		return
 	}
 
-	expiration := time.Duration(newProvisionToken.Expiration) * time.Hour
-	jsonBody, err := rc.oidcService.Create(data, expiration)
+	expirationDays := time.Duration(newProvisionToken.Expiration) * (time.Hour * 24)
+	jsonBody, err := rc.oidcService.Create(data, expirationDays)
 	if err != nil {
-		rc.internalServerError(w, err)
+		rc.internalServerError(c.Writer, err)
 		return
 	}
 
-	json.NewEncoder(w).Encode(jsonBody)
-	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(c.Writer).Encode(jsonBody)
+	c.Writer.WriteHeader(http.StatusCreated)
 }
 
-// DeleteToken removes a data from the Vault.
-func (rc RESTController) DeleteToken(c *gin.Context) {
-	r, w := c.Request, c.Writer
-	resource := strings.Split(r.URL.Path, "/")[2]
-	uuid := c.Params.ByName("uuid")
-	path := fmt.Sprintf("%s/data/%s", resource, uuid)
-
-	tokenToBeDeleted := c.Query("token_id")
+// deleteToken removes a data from the Vault.
+func (rc RESTController) deleteToken(c *gin.Context, path string) {
+	tokenToBeDeleted := c.Params.ByName("tokenUUID")
 	if tokenToBeDeleted == "" {
-		rc.badRequest(w, errors.New("no token was provided in the query string"))
+		rc.notFound(c.Writer, errors.New("no token was provided in the query string"))
 		return
 	}
 
 	err := rc.provisionTokenService.Delete(path, tokenToBeDeleted)
 	if err != nil {
-		rc.badRequest(w, err)
+		rc.badRequest(c.Writer, err)
 	}
 
-	w.WriteHeader(http.StatusOK)
+	c.Writer.WriteHeader(http.StatusOK)
 }
 
 // getCredentials is responsible for simply getting credentials.
@@ -350,6 +393,10 @@ func (rc RESTController) internalServerError(w http.ResponseWriter, err error) {
 
 func (rc RESTController) badRequest(w http.ResponseWriter, err error) {
 	rc.errorResponse(w, http.StatusBadRequest, err)
+}
+
+func (rc RESTController) notFound(w http.ResponseWriter, err error) {
+	rc.errorResponse(w, http.StatusNotFound, err)
 }
 
 // skipURLsMiddleware is a middleware that skips all requests configured in SKIP_URL.
