@@ -50,7 +50,7 @@ func main() {
 
 	// VaultClient
 	logger.Info("Configuring Vault access 📡")
-	authenticator := coreClients.NewLocalAuthenticator("myroot")
+	authenticator := coreClients.NewK8sAuthenticator()
 	vaultClient, err := coreClients.NewVaultClient(logger, vaultClientConfiguration, "authentication-service-role", authenticator)
 	if err != nil {
 		logger.Fatal("Unable to configure Vault client 🤨. Err: ", err)
