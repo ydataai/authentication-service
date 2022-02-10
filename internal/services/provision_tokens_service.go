@@ -1,7 +1,6 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -51,10 +50,6 @@ func (pt ProvisionTokens) List(path string) (VaultData, error) {
 
 // Create stores data into Vault.
 func (pt ProvisionTokens) Create(path string, ptr models.ProvisionTokenRequest) (models.CustomClaims, error) {
-	if ptr.Name == "" || ptr.Expiration <= 0 {
-		return models.CustomClaims{}, errors.New("an error occurred while provisioning the token")
-	}
-
 	expirationDays := time.Now().Add(time.Duration(ptr.Expiration) * (time.Hour * 24))
 	tokenID := uuid.New().String()
 	data := VaultData{

@@ -61,6 +61,6 @@ type UserInfo struct {
 
 // ProvisionTokenRequest defines a ProvisionToken struct.
 type ProvisionTokenRequest struct {
-	Name       string `json:"name"`
-	Expiration int64  `json:"expiration"`
+	Name       string `json:"name" validate:"min=1,max=16"`
+	Expiration int64  `json:"expiration" validate:"nonzero"`
 }

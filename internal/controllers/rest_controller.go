@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gopkg.in/validator.v2"
 
 	"github.com/ydataai/authentication-service/internal/configurations"
 	authErrors "github.com/ydataai/authentication-service/internal/errors"
@@ -302,8 +303,13 @@ func (rc RESTController) listTokens(c *gin.Context, path string) {
 // createToken stores data into Vault.
 func (rc RESTController) createToken(c *gin.Context, path string) {
 	var newProvisionToken models.ProvisionTokenRequest
-	if err := json.NewDecoder(c.Request.Body).Decode(&newProvisionToken); err != nil {
+	if err := c.ShouldBindJSON(&newProvisionToken); err != nil {
 		rc.internalServerError(c.Writer, err)
+		return
+	}
+
+	if err := validator.Validate(newProvisionToken); err != nil {
+		rc.badRequest(c.Writer, err)
 		return
 	}
 
