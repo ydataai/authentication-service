@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -76,8 +77,7 @@ func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.R
 	}
 	// if a token was passed but it is not valid, the flow must be stopped.
 	if err != nil {
-		rc.logger.Errorf("an error occurred while decoding token: %v", err)
-		rc.forbiddenResponse(w, err)
+		rc.forbiddenResponse(w, fmt.Errorf("an error occurred while decoding token: %v", err))
 		return
 	}
 
@@ -95,7 +95,6 @@ func (rc RESTController) RedirectToOIDCProvider(w http.ResponseWriter, r *http.R
 	rc.logger.Info("Starting OIDC flow")
 	oidcProviderURL, err := rc.oidcService.GetOIDCProviderURL()
 	if err != nil {
-		rc.logger.Error(err.Error())
 		rc.internalServerError(w, err)
 		return
 	}
@@ -117,7 +116,6 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	// Creates an OAuth2 token with the auth code returned from the OIDC Provider.
 	token, err := rc.oidcService.Claims(ctx, codeProvider)
 	if err != nil {
-		rc.logger.Error(err)
 		rc.forbiddenResponse(w, err)
 		return
 	}
@@ -126,7 +124,6 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	// with the callback from the OIDC Provider.
 	safe, err := rc.oidcService.IsFlowSecure(stateProvider, token)
 	if !safe {
-		rc.logger.Error(err)
 		rc.forbiddenResponse(w, err)
 		return
 	}
@@ -134,12 +131,11 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	// If the flow is secure, a JWT will be created...
 	jwt, err := rc.oidcService.Create(token.CustomClaims)
 	if err != nil {
-		rc.logger.Errorf("an error occurred while creating a JWT. Error: %v", err)
-		rc.forbiddenResponse(w, err)
+		rc.forbiddenResponse(w, fmt.Errorf("an error occurred while creating a JWT. Error: %v", err))
 		return
 	}
 	// ...set a session cookie.
-	rc.setSessionCookie(w, r, "access_token", jwt.AccessToken)
+	rc.setSessionCookie(w, r, rc.configuration.AccessTokenCookie, jwt.AccessToken)
 
 	rc.logger.Infof("Redirecting back to %s", rc.configuration.AuthServiceURL)
 	http.Redirect(w, r, rc.configuration.AuthServiceURL, http.StatusFound)
@@ -156,8 +152,7 @@ func (rc RESTController) UserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	userInfo, err := rc.oidcService.Decode(token)
 	if err != nil {
-		rc.logger.Errorf("an error occurred while decoding token: %v", err)
-		rc.forbiddenResponse(w, err)
+		rc.forbiddenResponse(w, fmt.Errorf("an error occurred while decoding token: %v", err))
 		return
 	}
 
@@ -176,7 +171,7 @@ func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rc.deleteSessionCookie(w, "access_token")
+	rc.deleteSessionCookie(w, rc.configuration.AccessTokenCookie)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -213,6 +208,7 @@ func (rc RESTController) deleteSessionCookie(w http.ResponseWriter, name string)
 }
 
 func (rc RESTController) errorResponse(w http.ResponseWriter, code int, err error) {
+	rc.logger.Error(err)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	jsonBody := models.ErrorResponse{
