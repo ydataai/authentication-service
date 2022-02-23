@@ -11,12 +11,12 @@ import (
 // CookieCredentialsHandler defines a CookieCredentialsHandler struct.
 type CookieCredentialsHandler struct {
 	logger        logging.Logger
-	configuration configurations.AuthServiceConfiguration
+	configuration configurations.CookieCredentialsHandlerConfiguration
 }
 
 // NewCookieCredentialsHandler defines a new CookieCredentialsHandler struct.
 func NewCookieCredentialsHandler(logger logging.Logger,
-	configuration configurations.AuthServiceConfiguration) CredentialsHandler {
+	configuration configurations.CookieCredentialsHandlerConfiguration) CredentialsHandler {
 	return &CookieCredentialsHandler{
 		logger:        logger,
 		configuration: configuration,
@@ -33,4 +33,9 @@ func (ac *CookieCredentialsHandler) Extract(r *http.Request) (string, error) {
 
 	ac.logger.Infof("%s cookie", foundMsg)
 	return token.Value, nil
+}
+
+// GetKeyName returns the cookie name configured.
+func (ac *CookieCredentialsHandler) GetKeyName() string {
+	return ac.configuration.AccessTokenCookieName
 }

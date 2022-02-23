@@ -25,7 +25,7 @@ func main() {
 	loggerConfiguration := logging.LoggerConfiguration{}
 	oidcClientConfiguration := configurations.OIDCClientConfiguration{}
 	oidcServiceConfiguration := configurations.OIDCServiceConfiguration{}
-	authServiceConfiguration := configurations.AuthServiceConfiguration{}
+	cookieCredentialsHandlerConfiguration := configurations.CookieCredentialsHandlerConfiguration{}
 	restConfiguration := configurations.RESTControllerConfiguration{}
 	serverConfiguration := server.HTTPServerConfiguration{}
 
@@ -33,7 +33,7 @@ func main() {
 		&loggerConfiguration,
 		&oidcClientConfiguration,
 		&oidcServiceConfiguration,
-		&authServiceConfiguration,
+		&cookieCredentialsHandlerConfiguration,
 		&restConfiguration,
 		&serverConfiguration,
 	}); err != nil {
@@ -54,14 +54,14 @@ func main() {
 
 	// Gathering the Credentials Handler.
 	headerCredentials := handlers.NewHeaderCredentialsHandler(logger)
-	cookieCredentials := handlers.NewCookieCredentialsHandler(logger, authServiceConfiguration)
+	cookieCredentials := handlers.NewCookieCredentialsHandler(logger, cookieCredentialsHandlerConfiguration)
 	// preference is chosen here.
-	credentials := []handlers.CredentialsHandler{
-		headerCredentials,
-		cookieCredentials,
+	credentials := map[string]handlers.CredentialsHandler{
+		"header": headerCredentials,
+		"cookie": cookieCredentials,
 	}
 
-	restController := controllers.NewRESTController(logger, restConfiguration, authServiceConfiguration, oidcService, credentials)
+	restController := controllers.NewRESTController(logger, restConfiguration, oidcService, credentials)
 
 	httpServer := server.NewServer(logger, serverConfiguration)
 	restController.Boot(httpServer)
