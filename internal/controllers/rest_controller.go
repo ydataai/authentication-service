@@ -22,6 +22,7 @@ import (
 // RESTController defines rest controller.
 type RESTController struct {
 	configuration configurations.RESTControllerConfiguration
+	authSvcConfig configurations.AuthServiceConfiguration
 	oidcService   services.OIDCService
 	credentials   []handlers.CredentialsHandler
 	logger        logging.Logger
@@ -31,6 +32,7 @@ type RESTController struct {
 func NewRESTController(
 	logger logging.Logger,
 	configuration configurations.RESTControllerConfiguration,
+	authSvcConfig configurations.AuthServiceConfiguration,
 	oidcService services.OIDCService,
 	credentials []handlers.CredentialsHandler,
 ) RESTController {
@@ -135,7 +137,7 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 		return
 	}
 	// ...set a session cookie.
-	rc.setSessionCookie(w, r, rc.configuration.AccessTokenCookie, jwt.AccessToken)
+	rc.setSessionCookie(w, r, rc.authSvcConfig.AccessTokenCookieName, jwt.AccessToken)
 
 	rc.logger.Infof("Redirecting back to %s", rc.configuration.AuthServiceURL)
 	http.Redirect(w, r, rc.configuration.AuthServiceURL, http.StatusFound)
@@ -171,7 +173,7 @@ func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rc.deleteSessionCookie(w, rc.configuration.AccessTokenCookie)
+	rc.deleteSessionCookie(w, rc.authSvcConfig.AccessTokenCookieName)
 	w.WriteHeader(http.StatusOK)
 }
 

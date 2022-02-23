@@ -17,9 +17,9 @@ func TestCookieExtract(t *testing.T) {
 	loggerConfig.Level = "warn"
 	logger := logging.NewLogger(loggerConfig)
 
-	cookieCredentialsHandlerConfiguration := configurations.CookieCredentialsHandlerConfiguration{}
-	cookieCredentialsHandlerConfiguration.LoadFromEnvVars()
-	cc := NewCookieCredentialsHandler(logger, cookieCredentialsHandlerConfiguration)
+	authSvcConfig := configurations.AuthServiceConfiguration{}
+	authSvcConfig.LoadFromEnvVars()
+	cc := NewCookieCredentialsHandler(logger, authSvcConfig)
 
 	mockRequestWithCookie := func(key, value string) *http.Request {
 		return &http.Request{Header: http.Header{
