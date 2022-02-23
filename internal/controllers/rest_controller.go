@@ -48,7 +48,7 @@ func (rc RESTController) Boot(s *server.Server) {
 
 	s.Router.GET(rc.configuration.AuthServiceURL, rc.CheckForAuthentication)
 	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.OIDCProviderCallback))
-	s.Router.GET(rc.configuration.UserInfoURL, gin.WrapF(rc.UserInfo))
+	s.Router.GET(rc.configuration.UserInfoURL, rc.CheckForAuthentication, gin.WrapF(rc.UserInfo))
 	s.Router.POST(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
 
 	s.Router.Any("/:forward", rc.CheckForAuthentication)
@@ -182,8 +182,8 @@ func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
 
 	if kind == "cookie" {
 		rc.deleteSessionCookie(w, rc.credentials[kind].GetKeyName())
-		w.WriteHeader(http.StatusOK)
 	}
+	w.WriteHeader(http.StatusOK)
 }
 
 // getCredentials is responsible for simply getting credentials.
