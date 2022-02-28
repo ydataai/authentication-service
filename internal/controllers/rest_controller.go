@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -143,8 +144,12 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 		return
 	}
 	// ...set a session cookie.
-	cookieName := rc.credentials["cookie"].GetKeyName()
-	rc.setSessionCookie(w, r, cookieName, jwt.AccessToken)
+	cookieHandler, ok := rc.credentials["cookie"]
+	if !ok {
+		rc.internalServerError(w, errors.New("could not get 'Cookie Handler'"))
+		return
+	}
+	rc.setSessionCookie(w, r, cookieHandler.GetKeyName(), jwt.AccessToken)
 
 	rc.logger.Infof("Redirecting back to %s", rc.configuration.AuthServiceURL)
 	http.Redirect(w, r, rc.configuration.AuthServiceURL, http.StatusFound)
