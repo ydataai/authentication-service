@@ -41,3 +41,8 @@ func (ah *HeaderCredentialsHandler) Extract(r *http.Request) (string, error) {
 	ah.logger.Infof("%s authorization header", foundMsg)
 	return token, nil
 }
+
+// GetKeyName returns the cookie name configured.
+func (ah *HeaderCredentialsHandler) GetKeyName() string {
+	return "Authorization"
+}

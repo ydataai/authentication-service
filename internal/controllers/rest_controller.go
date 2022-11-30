@@ -3,6 +3,8 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -22,7 +24,7 @@ import (
 type RESTController struct {
 	configuration configurations.RESTControllerConfiguration
 	oidcService   services.OIDCService
-	credentials   []handlers.CredentialsHandler
+	credentials   map[string]handlers.CredentialsHandler
 	logger        logging.Logger
 }
 
@@ -31,7 +33,7 @@ func NewRESTController(
 	logger logging.Logger,
 	configuration configurations.RESTControllerConfiguration,
 	oidcService services.OIDCService,
-	credentials []handlers.CredentialsHandler,
+	credentials map[string]handlers.CredentialsHandler,
 ) RESTController {
 	return RESTController{
 		configuration: configuration,
@@ -45,39 +47,45 @@ func NewRESTController(
 func (rc RESTController) Boot(s *server.Server) {
 	s.Router.Use(rc.skipURLsMiddleware())
 
-	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.CheckForAuthentication))
+	s.Router.GET(rc.configuration.AuthServiceURL, rc.CheckForAuthentication)
 	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.OIDCProviderCallback))
-	s.Router.GET(rc.configuration.UserInfoURL, gin.WrapF(rc.UserInfo))
+	s.Router.GET(rc.configuration.UserInfoURL, rc.CheckForAuthentication, gin.WrapF(rc.UserInfo))
 	s.Router.POST(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
 
-	s.Router.Any("/:forward", gin.WrapF(rc.CheckForAuthentication))
-	s.Router.Any("/:forward/*any", gin.WrapF(rc.CheckForAuthentication))
+	s.Router.Any("/:forward", rc.CheckForAuthentication)
+	s.Router.Any("/:forward/*any", rc.CheckForAuthentication)
 }
 
 // CheckForAuthentication is responsible for knowing if the user already has a valid credential or not.
 // If so, forward 200 OK + UserID Headers.
 // If not, begin OIDC Flow.
-func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.Request) {
+func (rc RESTController) CheckForAuthentication(c *gin.Context) {
 	// workflow to identify if there is a token present.
-	token, err := rc.getCredentials(r)
+	token, kind, err := rc.getCredentials(c.Request)
 	// if a token is not found, the OIDC flow will be started.
 	if authErrors.IsTokenNotFound(err) {
-		rc.RedirectToOIDCProvider(w, r)
+		rc.RedirectToOIDCProvider(c.Writer, c.Request)
 		return
 	}
 
 	userInfo, err := rc.oidcService.Decode(token)
 	// check if the token is expired or signature invalid.
-	// if so, the OIDC flow will be started to recreate a token.
 	if authErrors.IsTokenExpired(err) || authErrors.IsTokenSignatureInvalid(err) {
-		rc.logger.Warn(err)
-		rc.RedirectToOIDCProvider(w, r)
+		// check if the authentication is being done by cookie
+		// if so, the OIDC flow will be started to recreate a token.
+		if kind == "cookie" {
+			rc.logger.Warn(err)
+			rc.RedirectToOIDCProvider(c.Writer, c.Request)
+			return
+		}
+		// if not, return Forbidden
+		rc.forbiddenResponse(c.Writer, err)
+		c.Abort()
 		return
 	}
 	// if a token was passed but it is not valid, the flow must be stopped.
 	if err != nil {
-		rc.logger.Errorf("an error occurred while decoding token: %v", err)
-		rc.forbiddenResponse(w, err)
+		rc.forbiddenResponse(c.Writer, fmt.Errorf("an error occurred while decoding token: %v", err))
 		return
 	}
 
@@ -86,8 +94,9 @@ func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.R
 	rc.logger.Infof("Authorizing request for UserID: %v", userInfo.Email)
 
 	// set UserID Header + 200 OK
-	w.Header().Set(rc.configuration.UserIDHeader, userInfo.Email)
-	w.WriteHeader(http.StatusOK)
+	c.Writer.Header().Set(rc.configuration.UserIDHeader, userInfo.Email)
+	c.Writer.WriteHeader(http.StatusOK)
+	c.Next()
 }
 
 // RedirectToOIDCProvider is the handler responsible for redirecting to the OIDC Provider.
@@ -95,7 +104,6 @@ func (rc RESTController) RedirectToOIDCProvider(w http.ResponseWriter, r *http.R
 	rc.logger.Info("Starting OIDC flow")
 	oidcProviderURL, err := rc.oidcService.GetOIDCProviderURL()
 	if err != nil {
-		rc.logger.Error(err.Error())
 		rc.internalServerError(w, err)
 		return
 	}
@@ -117,7 +125,6 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	// Creates an OAuth2 token with the auth code returned from the OIDC Provider.
 	token, err := rc.oidcService.Claims(ctx, codeProvider)
 	if err != nil {
-		rc.logger.Error(err)
 		rc.forbiddenResponse(w, err)
 		return
 	}
@@ -126,7 +133,6 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	// with the callback from the OIDC Provider.
 	safe, err := rc.oidcService.IsFlowSecure(stateProvider, token)
 	if !safe {
-		rc.logger.Error(err)
 		rc.forbiddenResponse(w, err)
 		return
 	}
@@ -134,12 +140,16 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 	// If the flow is secure, a JWT will be created...
 	jwt, err := rc.oidcService.Create(token.CustomClaims)
 	if err != nil {
-		rc.logger.Errorf("an error occurred while creating a JWT. Error: %v", err)
-		rc.forbiddenResponse(w, err)
+		rc.forbiddenResponse(w, fmt.Errorf("an error occurred while creating a JWT. Error: %v", err))
 		return
 	}
 	// ...set a session cookie.
-	rc.setSessionCookie(w, r, "access_token", jwt.AccessToken)
+	cookieHandler, ok := rc.credentials["cookie"]
+	if !ok {
+		rc.internalServerError(w, errors.New("could not get 'Cookie Handler'"))
+		return
+	}
+	rc.setSessionCookie(w, r, cookieHandler.GetKeyName(), jwt.AccessToken)
 
 	rc.logger.Infof("Redirecting back to %s", rc.configuration.AuthServiceURL)
 	http.Redirect(w, r, rc.configuration.AuthServiceURL, http.StatusFound)
@@ -148,7 +158,7 @@ func (rc RESTController) OIDCProviderCallback(w http.ResponseWriter, r *http.Req
 // UserInfo shows user info from the OIDC Provider.
 func (rc RESTController) UserInfo(w http.ResponseWriter, r *http.Request) {
 	// workflow to identify if there is a token present.
-	token, err := rc.getCredentials(r)
+	token, _, err := rc.getCredentials(r)
 	// if a token is not found, return Forbidden.
 	if authErrors.IsTokenNotFound(err) {
 		rc.forbiddenResponse(w, err)
@@ -156,8 +166,7 @@ func (rc RESTController) UserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	userInfo, err := rc.oidcService.Decode(token)
 	if err != nil {
-		rc.logger.Errorf("an error occurred while decoding token: %v", err)
-		rc.forbiddenResponse(w, err)
+		rc.forbiddenResponse(w, fmt.Errorf("an error occurred while decoding token: %v", err))
 		return
 	}
 
@@ -169,31 +178,33 @@ func (rc RESTController) UserInfo(w http.ResponseWriter, r *http.Request) {
 // Logout is responsible for revoking a token and deleting an authentication cookie.
 func (rc RESTController) Logout(w http.ResponseWriter, r *http.Request) {
 	// workflow to identify if there is a token present.
-	_, err := rc.getCredentials(r)
+	_, kind, err := rc.getCredentials(r)
 	// if a token is not found, return Forbidden.
 	if authErrors.IsTokenNotFound(err) {
 		rc.forbiddenResponse(w, err)
 		return
 	}
 
-	rc.deleteSessionCookie(w, "access_token")
+	if kind == "cookie" {
+		rc.deleteSessionCookie(w, rc.credentials[kind].GetKeyName())
+	}
 	w.WriteHeader(http.StatusOK)
 }
 
 // getCredentials is responsible for simply getting credentials.
-func (rc RESTController) getCredentials(r *http.Request) (string, error) {
+func (rc RESTController) getCredentials(r *http.Request) (string, string, error) {
 	rc.logger.Info("Get request credentials...")
-	for _, auth := range rc.credentials {
+	for kind, auth := range rc.credentials {
 		token, err := auth.Extract(r)
 		if authErrors.IsTokenNotFound(err) {
 			continue
 		}
 		// credentials sent.
-		rc.logger.Debug(token)
-		return token, nil
+		rc.logger.Debugf("Token found in %s: %s", kind, token)
+		return token, kind, nil
 	}
 	// back to start OIDC flow.
-	return "", authErrors.ErrorTokenNotFound
+	return "", "", authErrors.ErrorTokenNotFound
 }
 
 func (rc RESTController) setSessionCookie(w http.ResponseWriter, r *http.Request, name, value string) {
@@ -213,6 +224,7 @@ func (rc RESTController) deleteSessionCookie(w http.ResponseWriter, name string)
 }
 
 func (rc RESTController) errorResponse(w http.ResponseWriter, code int, err error) {
+	rc.logger.Error(err)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	jsonBody := models.ErrorResponse{
