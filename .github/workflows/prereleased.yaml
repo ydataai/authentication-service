@@ -25,7 +25,7 @@ env:
 jobs:
   cancel_previous:
     name: 'Cancel Previous Runs'
-    runs-on: ubuntu-20.04
+    runs-on: self-hosted
     timeout-minutes: 3
 
     steps:
@@ -37,7 +37,7 @@ jobs:
 
   prepare:
     name: Prepare
-    runs-on: ubuntu-20.04
+    runs-on: self-hosted
 
     needs:
     - cancel_previous
@@ -53,7 +53,7 @@ jobs:
 
   build:
     name: Build
-    runs-on: ubuntu-20.04
+    runs-on: self-hosted
 
     needs:
     - prepare
@@ -84,7 +84,7 @@ jobs:
 
   update-manifests:
     name: Update Manifests
-    runs-on: ubuntu-20.04
+    runs-on: self-hosted
 
     needs:
     - prepare
