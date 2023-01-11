@@ -14,7 +14,7 @@ jobs:
     name: Calculate Version and Build Number
     runs-on:
     - self-hosted
-    - micro
+    - small
 
     outputs:
       build_number: ${{ steps.short_sha.outputs.value }}
