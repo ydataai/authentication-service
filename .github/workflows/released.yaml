@@ -53,13 +53,13 @@ jobs:
     steps:
     - name: Version
       id: version
-      run: echo ::set-output name=value::${GITHUB_REF#refs/*/}
+      run: echo "value=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
     - uses: actions/checkout@v3
 
     - name: Git Short sha
       id: short_sha
-      run: echo "::set-output name=value::$(git rev-parse --short HEAD)"
+      run: echo "value=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
 
   docker-tag:
@@ -112,7 +112,7 @@ jobs:
 
     - uses: imranismail/setup-kustomize@v2
       with:
-        kustomize-version: "3.8.5"
+        kustomize-version: ${{ secrets.KUSTOMIZE_VERSION }}
 
     - name: Update kustomization image tag
       env:
