@@ -125,7 +125,7 @@ jobs:
       uses: ydataai/update-notion-page@v1
       env:
         STATUS_ICON: ${{ steps.count_vulnerabilities.outputs.value == '0' && '"✅"' || '"⚠️"' }}
-        STATUS_URL: ${{ steps.count_vulnerabilities.outputs.value == '0' && 'null' || format('{{"url":"https://s3.console.aws.amazon.com/s3/buckets/repos-sboms?region={0}&prefix={1}/${{ env.SBOM_FILENAME }}-scan.sarif"}}', env.AWS_S3_REGION, github.event.repository.name) }}
+        STATUS_URL: ${{ steps.count_vulnerabilities.outputs.value == '0' && 'null' || format('{{"url":"https://s3.console.aws.amazon.com/s3/buckets/repos-sboms?region={0}&prefix={1}/{2}-scan.sarif"}}', env.AWS_S3_REGION, github.event.repository.name, env.SBOM_FILENAME) }}
       with:
         notion_secret: ${{ secrets.NOTION_SECRET }}
         notion_database_id: ${{ env.NOTION_DATABASE_ID }}
