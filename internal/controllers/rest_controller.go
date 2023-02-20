@@ -85,7 +85,7 @@ func (rc RESTController) CheckForAuthentication(w http.ResponseWriter, r *http.R
 	rc.logger.Debugf("Valid Token: %s", token)
 	rc.logger.Infof("Authorizing request for UserID: %v", userInfo.Email)
 
-	w.Header().Add(rc.configuration.AccessTokenHeader, token)
+	http.SetCookie(w, &http.Cookie{Name: rc.configuration.AccessTokenCookie, Value: token})
 
 	// set UserID Header + 200 OK
 	w.Header().Set(rc.configuration.UserIDHeader, userInfo.Email)
