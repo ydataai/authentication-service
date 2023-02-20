@@ -13,6 +13,7 @@ type RESTControllerConfiguration struct {
 	LogoutURL          string        `envconfig:"LOGOUT_URL" default:"/logout"`
 	UserInfoURL        string        `envconfig:"USER_INFO_URL" default:"/userinfo"`
 	HTTPRequestTimeout time.Duration `envconfig:"HTTP_REQUEST_TIMEOUT" default:"30s"`
+	AccessTokenHeader  string        `envconfig:"ACCESS_TOKEN_HEADER" default:"access_token"`
 	UserIDHeader       string        `envconfig:"USER_ID_HEADER" default:"userid"`
 	CookieMaxAge       int           `envconfig:"COOKIE_MAX_AGE" default:"86400"`
 	SkipURLs           []string      `envconfig:"SKIP_URLS" default:"/dex" split_words:"true"`
