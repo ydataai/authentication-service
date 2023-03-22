@@ -57,17 +57,17 @@ jobs:
     - name: Setup Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.17'
+        go-version-file: 'go.mod'
 
     - name: Cache Go modules
       uses: actions/cache@v3
       with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-build-${{ hashFiles('**/go.sum') }}
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
-          ${{ runner.OS }}-build-${{ env.cache-name }}-
-          ${{ runner.OS }}-build-
-          ${{ runner.OS }}-
+          ${{ runner.os }}-go-
 
     - name: Build for Test
       run: make build
