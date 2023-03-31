@@ -42,16 +42,18 @@ func NewRESTController(
 }
 
 // Boot initializes creating some routes.
-func (rc RESTController) Boot(s *server.Server) {
-	s.Router.Use(rc.skipURLsMiddleware())
+func (rc RESTController) Boot(s server.Server) {
+	router := s.Router()
 
-	s.Router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.CheckForAuthentication))
-	s.Router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.OIDCProviderCallback))
-	s.Router.GET(rc.configuration.UserInfoURL, gin.WrapF(rc.UserInfo))
-	s.Router.POST(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
+	router.Use(rc.skipURLsMiddleware())
 
-	s.Router.Any("/:forward", gin.WrapF(rc.CheckForAuthentication))
-	s.Router.Any("/:forward/*any", gin.WrapF(rc.CheckForAuthentication))
+	router.GET(rc.configuration.AuthServiceURL, gin.WrapF(rc.CheckForAuthentication))
+	router.GET(rc.configuration.OIDCCallbackURL, gin.WrapF(rc.OIDCProviderCallback))
+	router.GET(rc.configuration.UserInfoURL, gin.WrapF(rc.UserInfo))
+	router.POST(rc.configuration.LogoutURL, gin.WrapF(rc.Logout))
+
+	router.Any("/:forward", gin.WrapF(rc.CheckForAuthentication))
+	router.Any("/:forward/*any", gin.WrapF(rc.CheckForAuthentication))
 }
 
 // CheckForAuthentication is responsible for knowing if the user already has a valid credential or not.

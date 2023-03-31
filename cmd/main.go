@@ -69,7 +69,7 @@ func main() {
 
 	// HealthCheck
 	httpServer.AddHealthz()
-	httpServer.AddReadyz(func() bool { return true })
+	httpServer.AddReadyz(nil)
 
 	for err := range errChan {
 		logger.Error(err)

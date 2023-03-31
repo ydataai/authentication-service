@@ -113,7 +113,7 @@ func (m MockOIDCClient) Exchange(ctx context.Context, code string) (models.OAuth
 }
 
 // mockOIDCProvider creates fake OIDC provider.
-func mockOIDCProvider(httpServer *server.Server, address string) {
+func mockOIDCProvider(httpServer server.Server, address string) {
 	discoveryDoc := `
   {
     "issuer": "{{.Address}}",
@@ -184,7 +184,7 @@ func mockOIDCProvider(httpServer *server.Server, address string) {
 		tmpl.Execute(w, struct{ Address string }{Address: address})
 	}
 
-	httpServer.Router.GET("/.well-known/openid-configuration", gin.WrapF(discoveryHandler))
+	httpServer.Router().GET("/.well-known/openid-configuration", gin.WrapF(discoveryHandler))
 	httpServer.Run(context.Background())
 }
 
