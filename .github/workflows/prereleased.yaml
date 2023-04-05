@@ -91,6 +91,7 @@ jobs:
     - name: Create Docker SBOM
       uses: anchore/sbom-action@v0
       with:
+        upload-artifact-retention: 1
         image: ${{ steps.docker_build.outputs.imageId }}
         format: spdx-json
         upload-release-assets: false
