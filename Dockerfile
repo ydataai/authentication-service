@@ -12,8 +12,8 @@ RUN cd /workspace && go mod download
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -o main -a cmd/main.go
 
 # Use distroless as minimal base image to package the manager binary
-FROM gcr.io/distroless/base-nossl:nonroot
-
+# FROM golang:${GOLANG_VERSION}-alpine
+FROM gcr.io/distroless/static-debian11:nonroot-amd64
 WORKDIR /
 
 LABEL org.opencontainers.image.source https://github.com/ydataai/authentication-service
