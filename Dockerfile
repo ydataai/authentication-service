@@ -12,7 +12,7 @@ RUN cd /workspace && go mod download
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -o main -a cmd/main.go
 
 # Use distroless as minimal base image to package the manager binary
-FROM gcr.io/distroless/base-nossl:latest
+FROM gcr.io/distroless/base-nossl:nonroot
 
 WORKDIR /
 
