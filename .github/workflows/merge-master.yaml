@@ -79,7 +79,7 @@ jobs:
     name: Dev and Draft Releases
     runs-on:
     - self-hosted
-    - micro
+    - small
 
     needs:
     - prepare

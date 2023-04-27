@@ -14,7 +14,7 @@ jobs:
     name: SonarQube
     runs-on:
     - self-hosted
-    - micro
+    - small
 
     steps:
     - uses: actions/checkout@v3
