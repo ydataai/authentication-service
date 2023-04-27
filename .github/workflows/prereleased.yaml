@@ -37,7 +37,7 @@ jobs:
     name: 'Cancel Previous Runs'
     runs-on:
     - self-hosted
-    - micro
+    - small
     timeout-minutes: 3
 
     steps:
@@ -51,7 +51,7 @@ jobs:
     name: Prepare
     runs-on:
     - self-hosted
-    - micro
+    - small
 
     needs:
     - cancel_previous
@@ -154,7 +154,7 @@ jobs:
     name: Update Manifests
     runs-on:
     - self-hosted
-    - micro
+    - small
 
     needs:
     - prepare
