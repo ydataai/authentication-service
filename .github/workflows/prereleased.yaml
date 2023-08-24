@@ -111,7 +111,7 @@ jobs:
         echo "value=$(grep -cE "(medium|high|critical) vulnerability" ${{ steps.scan_sbom.outputs.sarif }})" >> $GITHUB_OUTPUT
 
     - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
+      uses: aws-actions/configure-aws-credentials@v3
       with:
         role-to-assume: ${{ secrets.AWS_S3_SBOMS_ROLE_ARN }}
         aws-region: ${{ env.AWS_S3_REGION }}
@@ -133,7 +133,7 @@ jobs:
         notion_page_update_properties: '{  "Docker Scan": { "rich_text": [ { "text": { "content": ${{ env.STATUS_ICON }}, "link": ${{ env.STATUS_URL }} } } ] }, "SBOMS": { "url": "https://s3.console.aws.amazon.com/s3/buckets/repos-sboms?region=${{ env.AWS_S3_REGION }}&prefix=${{ github.event.repository.name }}/" }  }'
 
     - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
+      uses: aws-actions/configure-aws-credentials@v3
       with:
         role-to-assume: ${{ env.ECR_ROLE_ARN }}
         aws-region: ${{ env.PRIVATE_ECR_REGION }}
