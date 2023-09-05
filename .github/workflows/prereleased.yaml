@@ -75,7 +75,7 @@ jobs:
     - prepare
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Build Docker Image
       id: docker_build
@@ -162,7 +162,7 @@ jobs:
 
     steps:
     - name: Checkout Manifests repo
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         repository: ydataai/manifests
         token: ${{ secrets.ACCESS_TOKEN }}
