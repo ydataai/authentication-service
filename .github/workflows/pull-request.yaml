@@ -30,8 +30,9 @@ jobs:
   build:
     name: Build
     runs-on:
-    - self-hosted
-    - medium
+    #- self-hosted
+    #- medium
+    - ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v4
@@ -64,8 +65,9 @@ jobs:
   static-analysis:
     name: Static Analysis
     runs-on:
-    - self-hosted
-    - large
+    #- self-hosted
+    #- large
+    - ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v4

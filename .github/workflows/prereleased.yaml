@@ -36,8 +36,9 @@ jobs:
   cancel_previous:
     name: 'Cancel Previous Runs'
     runs-on:
-    - self-hosted
-    - small
+    #- self-hosted
+    #- small
+    - ubuntu-22.04
     timeout-minutes: 3
 
     steps:
@@ -50,8 +51,9 @@ jobs:
   prepare:
     name: Prepare
     runs-on:
-    - self-hosted
-    - small
+    #- self-hosted
+    #- small
+    - ubuntu-22.04
 
     needs:
     - cancel_previous
@@ -68,8 +70,9 @@ jobs:
   build:
     name: Build
     runs-on:
-    - self-hosted
-    - medium
+    #- self-hosted
+    #- medium
+    - ubuntu-22.04
 
     needs:
     - prepare
@@ -153,8 +156,9 @@ jobs:
   update-manifests:
     name: Update Manifests
     runs-on:
-    - self-hosted
-    - small
+    #- self-hosted
+    #- small
+    - ubuntu-22.04
 
     needs:
     - prepare
