@@ -25,3 +25,9 @@ vet:	### Run go vet against code
 
 test: ### Runs application's tests in verbose mode
 	go test -v ./...
+
+docker-build: ### Build docker image
+	docker build -t $(base)authentication-service:$(tag) .
+
+docker-push: ### Build docker image
+	docker push $(base)authentication-service:$(tag)
