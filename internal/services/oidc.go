@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/ydataai/authentication-service/internal/clients"
 	"github.com/ydataai/authentication-service/internal/configurations"
@@ -148,17 +148,24 @@ func (osvc *OAuth2OIDCService) Decode(tokenString string) (models.UserInfo, erro
 		}, nil
 	}
 
-	if ve, ok := err.(*jwt.ValidationError); ok {
-		if ve.Errors&jwt.ValidationErrorMalformed != 0 {
+	if err != nil {
+		if err == jwt.ErrTokenMalformed {
 			return models.UserInfo{}, authErrors.ErrorTokenMalformed
-		} else if ve.Errors&jwt.ValidationErrorExpired != 0 {
+		}
+
+		if err == jwt.ErrTokenExpired {
 			return models.UserInfo{}, authErrors.ErrorTokenExpired
-		} else if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
+		}
+
+		if err == jwt.ErrTokenNotValidYet {
 			return models.UserInfo{}, authErrors.ErrorTokenInactive
-		} else if ve.Errors&jwt.ValidationErrorSignatureInvalid != 0 {
+		}
+
+		if err == jwt.ErrTokenSignatureInvalid {
 			return models.UserInfo{}, authErrors.ErrorTokenSignatureInvalid
 		}
 	}
+
 	return models.UserInfo{}, fmt.Errorf("couldn't handle this token: %v", err)
 }
 
