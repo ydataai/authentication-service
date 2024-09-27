@@ -31,7 +31,7 @@ jobs:
     runs-on:
     #- self-hosted
     #- medium
-    - ubuntu-22.04
+    - ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v4
@@ -66,13 +66,13 @@ jobs:
     runs-on:
     #- self-hosted
     #- large
-    - ubuntu-22.04
+    - ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v4
 
     - name: Create SBOM
-      uses: anchore/sbom-action@v0.17.2
+      uses: anchore/sbom-action@v0.17.0
       with:
         upload-artifact-retention: 1
         format: cyclonedx-json

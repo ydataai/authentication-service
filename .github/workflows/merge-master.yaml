@@ -15,7 +15,7 @@ jobs:
     runs-on:
     #- self-hosted
     #- small
-    - ubuntu-22.04
+    - ubuntu-24.04
 
     outputs:
       build_number: ${{ steps.short_sha.outputs.value }}
@@ -48,7 +48,7 @@ jobs:
     runs-on:
     #- self-hosted
     #- medium
-    - ubuntu-22.04
+    - ubuntu-24.04
 
     needs:
     - prepare
@@ -82,7 +82,7 @@ jobs:
     runs-on:
     #- self-hosted
     #- small
-    - ubuntu-22.04
+    - ubuntu-24.04
 
     needs:
     - prepare
