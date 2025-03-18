@@ -10,7 +10,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/stretchr/testify v1.9.0
-	github.com/ydataai/go-core v0.15.1
+	github.com/ydataai/go-core v0.15.5
 	golang.org/x/oauth2 v0.18.0
 )
 
