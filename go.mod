@@ -11,7 +11,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/stretchr/testify v1.9.0
 	github.com/ydataai/go-core v0.15.1
-	golang.org/x/oauth2 v0.18.0
+	golang.org/x/oauth2 v0.27.0
 )
 
 require (
