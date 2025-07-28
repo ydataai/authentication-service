@@ -38,7 +38,7 @@ jobs:
     runs-on:
     #- self-hosted
     #- small
-    - ubuntu-24.04
+    - ubuntu-22.04
     timeout-minutes: 3
 
     steps:
@@ -53,7 +53,7 @@ jobs:
     runs-on:
     #- self-hosted
     #- small
-    - ubuntu-24.04
+    - ubuntu-22.04
 
     needs:
     - cancel_previous
@@ -72,7 +72,7 @@ jobs:
     runs-on:
     #- self-hosted
     #- medium
-    - ubuntu-24.04
+    - ubuntu-22.04
 
     needs:
     - prepare
@@ -82,7 +82,7 @@ jobs:
 
     - name: Build Docker Image
       id: docker_build
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       env:
         DOCKER_IMAGE_TAG: ${{ env.DOCKER_REPOSITORY }}:${{ needs.prepare.outputs.version }}
       with:
@@ -133,7 +133,7 @@ jobs:
     runs-on:
     #- self-hosted
     #- small
-    - ubuntu-24.04
+    - ubuntu-22.04
 
     needs:
     - prepare
@@ -172,7 +172,7 @@ jobs:
     runs-on:
     #- self-hosted
     #- large
-    - ubuntu-24.04
+    - ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v4
