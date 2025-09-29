@@ -6,7 +6,7 @@ toolchain go1.22.1
 
 require (
 	github.com/coreos/go-oidc/v3 v3.10.0
-	github.com/gin-gonic/gin v1.9.1
+	github.com/gin-gonic/gin v1.11.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/stretchr/testify v1.9.0
