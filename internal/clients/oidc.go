@@ -61,7 +61,9 @@ func (oc *OAuth2OIDCClient) StartSetup() {
 }
 
 // AuthCodeURL is an oidc lib proxy that returns a URL to OAuth 2.0 provider's consent page that asks
-//  for permissions for the required scopes explicitly.
+//
+//	for permissions for the required scopes explicitly.
+//
 // for more information, see: https://pkg.go.dev/golang.org/x/oauth2#Config.AuthCodeURL
 func (oc *OAuth2OIDCClient) AuthCodeURL(state, nonce string) string {
 	return oc.oauth2config.AuthCodeURL(state, oidc.Nonce(nonce))
