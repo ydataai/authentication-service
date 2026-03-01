@@ -63,7 +63,7 @@ jobs:
       id: version
       run: echo "value=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Git Short sha
       id: short_sha
@@ -114,7 +114,7 @@ jobs:
 
     steps:
     - name: Checkout Manifests repo
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         repository: ydataai/manifests
         token: ${{ secrets.ACCESS_TOKEN }}

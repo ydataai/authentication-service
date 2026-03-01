@@ -78,7 +78,7 @@ jobs:
     - prepare
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Build Docker Image
       id: docker_build
@@ -141,7 +141,7 @@ jobs:
 
     steps:
     - name: Checkout Manifests repo
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         repository: ydataai/manifests
         token: ${{ secrets.ACCESS_TOKEN }}
@@ -175,7 +175,7 @@ jobs:
     - ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Create SBOM
       uses: anchore/sbom-action@v0.23.0
