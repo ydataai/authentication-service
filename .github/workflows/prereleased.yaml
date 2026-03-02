@@ -101,7 +101,7 @@ jobs:
         output-file: ${{ env.SBOM_FILENAME }}.cyclonedx.json
 
     - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
+      uses: aws-actions/configure-aws-credentials@v6
       with:
         role-to-assume: ${{ secrets.AWS_S3_SBOMS_ROLE_ARN }}
         aws-region: ${{ env.AWS_S3_REGION }}
@@ -111,7 +111,7 @@ jobs:
         aws s3 cp ${{ env.SBOM_FILENAME }}.cyclonedx.json s3://repos-sboms/${{ github.event.repository.name }}/${{ env.SBOM_FILENAME }}.cyclonedx.json
 
     - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
+      uses: aws-actions/configure-aws-credentials@v6
       with:
         role-to-assume: ${{ env.ECR_ROLE_ARN }}
         aws-region: ${{ env.PRIVATE_ECR_REGION }}
@@ -185,7 +185,7 @@ jobs:
         output-file: package-sbom.cyclonedx.json
 
     - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
+      uses: aws-actions/configure-aws-credentials@v6
       with:
         role-to-assume: ${{ secrets.AWS_S3_SBOMS_ROLE_ARN }}
         aws-region: ${{ env.AWS_S3_REGION }}
